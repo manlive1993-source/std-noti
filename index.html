@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบแจ้งข้อมูลข่าวสารนักเรียน</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0284c7', 600: '#0284c7', 700: '#0369a1' },
+                        secondary: { 500: '#64748b' }
+                    },
+                    fontFamily: {
+                        sans: ['Kanit', 'Sarabun', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Font Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* Responsive base typography: scales smoothly across phone / tablet / desktop */
+        html { font-size: clamp(14px, 0.85vw + 12px, 17px); }
+        body { font-family: 'Kanit', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @media (max-width: 360px) {
+            html { font-size: 13px; }
+        }
+        @media (min-width: 1536px) {
+            html { font-size: 17px; }
+        }
+
+        /* SweetAlert2 Dark Mode Customization */
+        .dark .swal2-popup {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+            border: 1px solid #334155 !important;
+        }
+        .dark .swal2-title,
+        .dark .swal2-html-container,
+        .dark .swal2-content {
+            color: #f1f5f9 !important;
+        }
+        .dark .swal2-close {
+            color: #94a3b8 !important;
+        }
+        .dark .swal2-footer {
+            border-top-color: #334155 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-200">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur border-b border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                    <i class="fa-solid fa-bullhorn text-lg"></i>
+                </div>
+                <div class="hidden sm:block">
+                    <h1 class="font-bold text-base sm:text-lg leading-tight text-slate-900 dark:text-white">ระบบแจ้งข้อมูลข่าวสารนักเรียน</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">School Student Notification System</p>
+                </div>
+            </div>
+
+            <!-- Header Controls & Navigation Tabs -->
+            <div class="flex items-center gap-2 sm:gap-4">
+                <!-- Navigation Tabs -->
+                <nav class="flex bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
+                    <button id="tabBtnStudent" onclick="switchTab('student')" 
+                        class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm">
+                        <i class="fa-solid fa-user-graduate"></i>
+                        <span class="hidden sm:inline">นักเรียน/ผู้ปกครอง</span>
+                    </button>
+                    <button id="tabBtnTeacher" onclick="switchTab('teacher')" 
+                        class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                        <span class="hidden sm:inline">สำหรับครู</span>
+                    </button>
+                </nav>
+
+                <!-- Refresh Button -->
+                <button onclick="reloadData()" title="โหลดข้อมูลใหม่" 
+                    class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-rotate-right" id="refreshIcon"></i>
+                </button>
+
+                <!-- Dark Mode Toggle -->
+                <button id="themeToggle" onclick="toggleTheme()" title="สลับโหมดสว่าง/มืด" 
+                    class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-amber-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- TAB 1: Student & Parent Portal -->
+        <section id="viewStudent" class="space-y-6">
+            <!-- Search Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+                <h2 class="text-base sm:text-lg font-semibold flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <i class="fa-solid fa-magnifying-glass"></i> ค้นหาข้อมูลนักเรียน
+                </h2>
+                
+                <div class="relative" id="studentSearchWrapper">
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">พิมพ์ ค้นหา จาก ชื่อ-นามสกุล, รหัสนักเรียน หรือ ระดับชั้น แล้วเลือกจากรายการ</label>
+                    <div class="relative">
+                        <input type="text" id="studentSearchQuery" oninput="filterStudentList()" onfocus="clearStudentSearch()" onclick="clearStudentSearch()" autocomplete="off" placeholder="พิมพ์เพื่อค้นหา (เช่น กิตติพงษ์, 10001, ม.1/1)..." 
+                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                        <i class="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                        <button id="btnClearStudentSearch" onclick="clearStudentSearch()" 
+                            class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+                            <i class="fa-solid fa-circle-xmark text-sm"></i>
+                        </button>
+                    </div>
+
+                    <!-- Autocomplete Suggestions List Container -->
+                    <div id="studentAutocompleteList" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto z-30 divide-y divide-slate-100 dark:divide-slate-700/60">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Results Container Grouped by Category -->
+            <div id="studentNotificationResults" class="space-y-6">
+                <!-- Dynamic cards populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- TAB 2: Teacher Portal (Login / Dashboard) -->
+        <section id="viewTeacher" class="hidden space-y-6">
+            
+            <!-- Login Card (Displayed when not logged in) -->
+            <div id="teacherLoginForm" class="max-w-md mx-auto my-12 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <i class="fa-solid fa-user-lock text-2xl"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">เข้าสู่ระบบสำหรับครู</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">กรุณากรอกชื่อผู้ใช้และรหัสผ่านเพื่อจัดการการแจ้งเตือน</p>
+                </div>
+
+                <form onsubmit="handleTeacherLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">ชื่อผู้ใช้ (Username)</label>
+                        <div class="relative">
+                            <input type="text" id="loginUsername" oninput="toggleClearBtn('loginUsername')" required placeholder="กรอกชื่อผู้ใช้" 
+                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                            <button id="btnClearloginUsername" type="button" onclick="clearInput('loginUsername')" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i class="fa-solid fa-circle-xmark text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">รหัสผ่าน (Password)</label>
+                        <div class="relative">
+                            <input type="password" id="loginPassword" oninput="toggleClearBtn('loginPassword')" required placeholder="กรอกรหัสผ่าน" 
+                                class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                            <button id="btnClearloginPassword" type="button" onclick="clearInput('loginPassword')" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i class="fa-solid fa-circle-xmark text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs">
+                        <label class="flex items-center gap-2 text-slate-600 dark:text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="rememberLogin" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                            จดจำชื่อผู้ใช้และรหัสผ่าน
+                        </label>
+                        <button type="button" onclick="clearRememberedLogin()" class="text-xs text-rose-500 hover:underline">ลบข้อมูลที่จำไว้</button>
+                    </div>
+
+                    <button type="submit" 
+                        class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-500/25 transition active:scale-[0.98]">
+                        <i class="fa-solid fa-right-to-bracket mr-1"></i> เข้าสู่ระบบ
+                    </button>
+                </form>
+            </div>
+
+            <!-- Teacher Authenticated Dashboard -->
+            <div id="teacherDashboard" class="hidden space-y-8">
+                
+                <!-- Teacher Top Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-user-check"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-400">เข้าสู่ระบบในชื่อ:</span>
+                            <h3 id="loggedTeacherName" class="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100">คุณครู...</h3>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <button onclick="openChangePasswordModal()" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                            <i class="fa-solid fa-key mr-1"></i> เปลี่ยนรหัสผ่าน
+                        </button>
+                        <button onclick="handleTeacherLogout()" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> ออกจากระบบ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SECTION 1: Create New Notification Form -->
+                <div id="sectionFormNotification" class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 transition-all duration-300">
+                    <div class="border-b border-slate-200 dark:border-slate-700 pb-3 flex items-center justify-between">
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane text-blue-600"></i> ส่วนที่ 1: แจ้งข้อมูลนักเรียน
+                        </h2>
+                        <span id="section1Badge" class="text-xs px-2.5 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded-full font-medium transition-all">แบบฟอร์มบันทึก</span>
+                    </div>
+
+                    <!-- Notification Title & Category -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Title Field with Clear Button -->
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                เรื่องที่ต้องการแจ้ง <span class="text-rose-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="formSubject" oninput="toggleClearBtn('formSubject')" placeholder="เช่น แจ้งกำหนดการสอบกลางภาค / การส่งใบงาน..." 
+                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white pr-10">
+                                <button id="btnClearformSubject" onclick="clearInput('formSubject')" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                                    <i class="fa-solid fa-circle-xmark text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Category Dropdown -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                ประเภท <span class="text-rose-500">*</span>
+                            </label>
+                            <select id="formCategory" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Target Selection Controls (Removed Inner Scrollbar for smooth experience) -->
+                    <div class="space-y-3">
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            กลุ่มเป้าหมาย (เลือกนักเรียนที่ต้องการแจ้ง)
+                        </label>
+                        
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex-1 min-w-[200px] relative">
+                                <input type="text" id="targetSearchQuery" oninput="toggleClearBtn('targetSearchQuery'); filterTargetStudents()" placeholder="ค้นหา ชื่อ, รหัส หรือ ชั้นเรียน..." 
+                                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 dark:text-white">
+                                <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                                <button id="btnCleartargetSearchQuery" onclick="clearInput('targetSearchQuery', filterTargetStudents)" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+                                    <i class="fa-solid fa-circle-xmark text-xs"></i>
+                                </button>
+                            </div>
+
+                            <button onclick="selectAllVisibleStudents(true)" class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition">
+                                <i class="fa-solid fa-check-double mr-1"></i> เลือกทั้งหมด
+                            </button>
+                            <button onclick="selectAllVisibleStudents(false)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-medium transition">
+                                <i class="fa-solid fa-xmark mr-1"></i> ยกเลิกการเลือก
+                            </button>
+                        </div>
+
+                        <!-- Student Selection Table (Removed Scrollbar restriction max-h-96) -->
+                        <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
+                            <div id="targetStudentListContainer" class="divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-900">
+                            </div>
+                        </div>
+
+                        <!-- Summary Panel of Checked Students with direct Checkboxes & Unselect controls -->
+                        <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+                            <div class="flex items-center justify-between font-medium">
+                                <span class="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-check text-blue-600"></i> สรุปนักเรียนที่ถูกเลือก:
+                                </span>
+                                <span class="text-blue-600 dark:text-blue-400 font-bold text-sm bg-blue-100 dark:bg-blue-950 px-2.5 py-0.5 rounded-full" id="summaryTotalChecked">0 คน</span>
+                            </div>
+                            <div id="summaryClassBreakdown" class="space-y-2">
+                                <!-- Dynamic grouped details per class with uncheck checkboxes -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Teacher Name & Thai Date/Time Inputs -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                ชื่อครูผู้แจ้ง
+                            </label>
+                            <div id="formTeacherDisplay" class="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                                <i class="fa-solid fa-chalkboard-user text-blue-500"></i>
+                                <span id="formTeacherNameText">-</span>
+                            </div>
+                            <input type="hidden" id="formTeacherSelect">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                วันที่/เวลาที่ต้องการแจ้ง
+                            </label>
+                            
+                            <!-- Schedule Mode Selection Controls -->
+                            <div class="flex items-center gap-4 text-xs mb-2.5">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300 font-medium">
+                                    <input type="radio" name="scheduleMode" value="now" id="scheduleModeNow" onchange="toggleScheduleMode()" checked class="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                                    <span>วันเวลาปัจจุบัน (ค่าเริ่มต้น)</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300 font-medium">
+                                    <input type="radio" name="scheduleMode" value="custom" id="scheduleModeCustom" onchange="toggleScheduleMode()" class="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                                    <span>กำหนดเวลาเอง</span>
+                                </label>
+                            </div>
+
+                            <!-- Custom Date & Time Inputs Container -->
+                            <div id="scheduleCustomInputs" class="hidden grid grid-cols-2 gap-2 mb-2">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">วันที่</label>
+                                    <input type="date" id="formScheduleDate" onchange="updateThaiDateTimePreview()"
+                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">ชั่วโมง (0-23)</label>
+                                    <input type="number" id="thaiScheduleHour" min="0" max="23" step="1" placeholder="ชม." oninput="syncHiddenFromThaiSelects()"
+                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">นาที (0-59)</label>
+                                    <input type="number" id="thaiScheduleMinute" min="0" max="59" step="1" placeholder="นาที" oninput="syncHiddenFromThaiSelects()"
+                                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                                </div>
+                                <!-- Hidden input keeps the underlying HH:mm value used by the rest of the app -->
+                                <input type="hidden" id="formScheduleTime">
+                            </div>
+
+                            <!-- Live Thai Date/Time Preview Box -->
+                            <div class="mt-2 text-[11px] bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-lg p-2 text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                                <i class="fa-regular fa-clock text-blue-500"></i>
+                                <span>กำหนดการแจ้ง: <strong id="thaiDateTimePreviewDisplay">-</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button id="btnCancelForm" onclick="confirmResetForm()" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs sm:text-sm font-medium transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> ยกเลิก
+                        </button>
+                        <button id="btnSaveForm" onclick="confirmSaveNotification()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-md shadow-blue-500/20 transition">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกข้อมูล
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: Recorded Data History -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
+                    <div class="border-b border-slate-200 dark:border-slate-700 pb-3 flex items-center justify-between">
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> ส่วนที่ 2: ประวัติข้อมูลข่าวสารที่บันทึก
+                        </h2>
+                    </div>
+
+                    <!-- Search Filter for History -->
+                    <div class="relative">
+                        <input type="text" id="historySearchQuery" oninput="toggleClearBtn('historySearchQuery'); onHistorySearchInput()" placeholder="ค้นหาจาก เรื่องที่แจ้ง, ประเภท หรือ ชื่อครู..." 
+                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        <i class="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                        <button id="btnClearhistorySearchQuery" onclick="clearInput('historySearchQuery', onHistorySearchInput)" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+                            <i class="fa-solid fa-circle-xmark text-sm"></i>
+                        </button>
+                    </div>
+
+                    <!-- History Table (desktop / tablet) -->
+                    <div class="hidden sm:block overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                            <thead class="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                                <tr>
+                                    <th class="p-3">เรื่องที่แจ้ง</th>
+                                    <th class="p-3">ประเภท</th>
+                                    <th class="p-3">ชื่อครู</th>
+                                    <th class="p-3 hidden sm:table-cell">วันที่แจ้ง</th>
+                                    <th class="p-3 hidden md:table-cell">วันที่บันทึก</th>
+                                    <th class="p-3 text-right">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody" class="divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-800">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- History Cards (mobile / small screens) -->
+                    <div id="historyCardList" class="sm:hidden space-y-3"></div>
+
+                    <!-- Pagination Bar -->
+                    <div id="historyPagination" class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400">
+                        <!-- Dynamic pagination controls -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal View / Edit Details -->
+    <div id="modalHistoryDetail" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+                <h3 id="modalTitle" class="font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-file-lines text-blue-600"></i> รายละเอียดการแจ้งข่าวสาร
+                </h3>
+                <span id="modalModeBadge" class="text-xs px-2.5 py-1 rounded-full font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300">
+                    โหมดดูข้อมูล
+                </span>
+            </div>
+
+            <div id="modalBody" class="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm">
+            </div>
+
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3 bg-slate-50 dark:bg-slate-900">
+                <button id="btnModalEditToggle" onclick="toggleModalEditMode()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs sm:text-sm font-medium transition">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i> แก้ไขข้อมูล
+                </button>
+                <button onclick="closeModal()" class="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs sm:text-sm font-medium transition">
+                    ปิด
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Change Password -->
+    <div id="modalChangePassword" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+                <h3 class="font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-key text-blue-600"></i> เปลี่ยนรหัสผ่าน
+                </h3>
+                <button onclick="closeChangePasswordModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleChangePasswordSubmit(event)" class="p-4 sm:p-6 space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">รหัสผ่านเดิม</label>
+                    <input type="password" id="cpOldPassword" required placeholder="กรอกรหัสผ่านเดิม"
+                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">รหัสผ่านใหม่</label>
+                    <input type="password" id="cpNewPassword" required minlength="1" placeholder="กรอกรหัสผ่านใหม่"
+                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">ยืนยันรหัสผ่านใหม่</label>
+                    <input type="password" id="cpConfirmPassword" required placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                        class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white">
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeChangePasswordModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs sm:text-sm font-medium transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-md shadow-blue-500/20 transition">
+                        <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกรหัสผ่านใหม่
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Floating Back to Top Button -->
+    <button id="btnBackToTop" onclick="scrollToTop()" title="เลื่อนขึ้นข้างบน" 
+        class="fixed bottom-6 left-6 z-40 p-3.5 bg-blue-600 text-white rounded-full shadow-xl hover:bg-blue-700 transition duration-300 transform translate-y-20 opacity-0">
+        <i class="fa-solid fa-arrow-up text-base"></i>
+    </button>
+
+    <!-- Global Loading Spinner Overlay -->
+    <div id="globalSpinner" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 border border-slate-200 dark:border-slate-700">
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200">กำลังประมวลผลข้อมูล...</p>
+        </div>
+    </div>
+
+    <script>
+        // ===================================================================
+        // Backend API connection (Google Apps Script Web App deployed as a
+        // JSON API — see code.gs doGet/doPost). Paste the /exec URL you get
+        // after "Deploy > New deployment > Web app" in Apps Script here.
+        // ===================================================================
+        const API_URL = 'https://script.google.com/macros/s/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/exec';
+
+        function isApiConfigured() {
+            return !!API_URL && API_URL.indexOf('XXXXXXXX') === -1;
+        }
+
+        // Calls the Apps Script backend. Uses Content-Type: text/plain on
+        // purpose (NOT application/json): browsers only send that as a
+        // "simple request", so no CORS preflight (OPTIONS) is triggered —
+        // Apps Script Web Apps can't reliably answer preflight requests.
+        // code.gs parses the text body as JSON on its side (e.postData.contents).
+        function callApi(action, payload) {
+            return fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: action, payload: payload || {} })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (json) {
+                    if (!json || json.success !== true) {
+                        const msg = (json && json.message) ? json.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อ API';
+                        throw new Error(msg);
+                    }
+                    return json.data;
+                });
+        }
+
+        let state = {
+            theme: localStorage.getItem('theme') || 'light',
+            currentTab: 'student',
+            loggedInTeacher: null,
+            editingNotificationId: null,
+            // Data below is loaded live from the Google Sheet database via
+            // the Apps Script JSON API (see loadInitialData() / callApi()). No mockup data here.
+            categories: [],
+            teachers: [],
+            students: [],
+            notifications: [],
+            selectedStudentForView: null,
+            targetCheckState: {}, // studentId -> { checked: bool, note: string }
+            currentEditingHistoryId: null,
+            modalIsEditMode: false,
+            historyPage: 1,
+            historyPerPage: 30,
+            studentCategoryExpanded: {} // categoryId -> bool, controls collapse in student view
+        };
+
+        // Safe substring match used by every search box in the app. Coerces
+        // to string first so a row with a missing/blank field (e.g. an empty
+        // cell in the sheet) can't throw and silently kill the whole search.
+        function matchesQuery_(value, query) {
+            return String(value == null ? '' : value).toLowerCase().includes(query);
+        }
+
+        // Theme Management
+        function initTheme() {
+            if (state.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                state.theme = 'dark';
+            } else {
+                document.documentElement.classList.remove('dark');
+                state.theme = 'light';
+            }
+        }
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                state.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                state.theme = 'dark';
+            }
+            localStorage.setItem('theme', state.theme);
+        }
+
+        // Tab Navigation
+        function switchTab(tab) {
+            state.currentTab = tab;
+            const viewStudent = document.getElementById('viewStudent');
+            const viewTeacher = document.getElementById('viewTeacher');
+            const btnStudent = document.getElementById('tabBtnStudent');
+            const btnTeacher = document.getElementById('tabBtnTeacher');
+
+            if (tab === 'student') {
+                viewStudent.classList.remove('hidden');
+                viewTeacher.classList.add('hidden');
+                btnStudent.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                btnTeacher.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
+            } else {
+                viewStudent.classList.add('hidden');
+                viewTeacher.classList.remove('hidden');
+                btnTeacher.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                btnStudent.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
+            }
+        }
+
+        // Data Reloading & Spinners
+        // Actually re-fetches categories/teachers/students/notifications from
+        // the Google Sheet (previously this only re-rendered stale local
+        // state after a fake delay, so it never picked up real changes).
+        function reloadData() {
+            const icon = document.getElementById('refreshIcon');
+            if (icon) icon.classList.add('animate-spin');
+            showSpinner(true);
+
+            const finish = function () {
+                showSpinner(false);
+                if (icon) icon.classList.remove('animate-spin');
+            };
+
+            if (!isApiConfigured()) {
+                finish();
+                toast('ยังไม่ได้ตั้งค่า API_URL กรุณาใส่ URL ของ Apps Script Web App', 'error');
+                return;
+            }
+
+            callApi('getInitialData')
+                .then(function (data) {
+                    state.categories = (data && data.categories) || [];
+                    state.teachers = (data && data.teachers) || [];
+                    state.students = (data && data.students) || [];
+                    state.notifications = (data && data.notifications) || [];
+
+                    // Keep the logged-in teacher record in sync (name/password
+                    // may have changed on the sheet), refresh dropdown data,
+                    // and re-render whichever view is currently active.
+                    if (state.loggedInTeacher) {
+                        const refreshedTeacher = state.teachers.find(t => t.username === state.loggedInTeacher.username);
+                        if (refreshedTeacher) {
+                            state.loggedInTeacher = refreshedTeacher;
+                            document.getElementById('loggedTeacherName').innerText = refreshedTeacher.name;
+                        }
+                        setFormTeacherFromLoggedInUser();
+                    }
+                    populateDropdowns();
+
+                    if (state.currentTab === 'student') {
+                        displaySelectedStudentNotifications();
+                    } else {
+                        renderHistoryTable();
+                        renderTargetStudentsList();
+                    }
+
+                    finish();
+                    toast('โหลดข้อมูลใหม่เรียบร้อยแล้ว', 'success');
+                })
+                .catch(function (err) {
+                    finish();
+                    Swal.fire('โหลดข้อมูลไม่สำเร็จ', (err && err.message) ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                });
+        }
+
+        function showSpinner(show) {
+            const spinner = document.getElementById('globalSpinner');
+            if (spinner) {
+                if (show) {
+                    spinner.classList.remove('hidden');
+                } else {
+                    spinner.classList.add('hidden');
+                }
+            }
+        }
+
+        // Toast Notifications
+        function toast(message, icon = 'success') {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer);
+                    toast.addEventListener('mouseleave', Swal.resumeTimer);
+                }
+            });
+            Toast.fire({
+                icon: icon,
+                title: message
+            });
+        }
+
+        // Color palette per category, so each type of notification (การบ้าน,
+        // การสอบ, กิจกรรม, ประกาศ...) is visually distinguishable at a glance.
+        // Cycles through the palette by category order, so it still works
+        // gracefully if categories are added/removed/renamed later.
+        const CATEGORY_COLOR_PALETTE = [
+            { name: 'blue',   border: 'border-blue-600',   icon: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300',   badge: 'bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300',   badgeSoft: 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300',   dot: 'bg-blue-500',   cardAccent: 'border-l-4 border-l-blue-500' },
+            { name: 'rose',   border: 'border-rose-600',   icon: 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300',   badge: 'bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300',   badgeSoft: 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-300',   dot: 'bg-rose-500',   cardAccent: 'border-l-4 border-l-rose-500' },
+            { name: 'emerald', border: 'border-emerald-600', icon: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300', badge: 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300', badgeSoft: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300', dot: 'bg-emerald-500', cardAccent: 'border-l-4 border-l-emerald-500' },
+            { name: 'amber',  border: 'border-amber-600',  icon: 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300',  badge: 'bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-300',  badgeSoft: 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-300',  dot: 'bg-amber-500',  cardAccent: 'border-l-4 border-l-amber-500' },
+            { name: 'violet', border: 'border-violet-600', icon: 'bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-300', badge: 'bg-violet-100 dark:bg-violet-900/60 text-violet-600 dark:text-violet-300', badgeSoft: 'bg-violet-50 dark:bg-violet-950 text-violet-600 dark:text-violet-300', dot: 'bg-violet-500', cardAccent: 'border-l-4 border-l-violet-500' },
+            { name: 'cyan',   border: 'border-cyan-600',   icon: 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-300',   badge: 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-600 dark:text-cyan-300',   badgeSoft: 'bg-cyan-50 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-300',   dot: 'bg-cyan-500',   cardAccent: 'border-l-4 border-l-cyan-500' }
+        ];
+        function getCategoryColors(categoryId) {
+            const sorted = [...state.categories].sort((a, b) => a.order - b.order);
+            const idx = sorted.findIndex(c => c.id === categoryId);
+            return CATEGORY_COLOR_PALETTE[(idx >= 0 ? idx : 0) % CATEGORY_COLOR_PALETTE.length];
+        }
+
+        // Returns true once the current local time has reached (or passed) a
+        // notification's scheduleTime. Used to hide not-yet-due notifications
+        // from the student/parent view.
+        function isNotificationDue(notif) {
+            if (!notif || !notif.scheduleTime) return true;
+            const scheduled = new Date(notif.scheduleTime); // "yyyy-MM-ddTHH:mm" parses as local time
+            if (isNaN(scheduled.getTime())) return true; // fail open if the value is unexpected
+            return new Date() >= scheduled;
+        }
+
+        // Returns current LOCAL date/time as "yyyy-MM-ddTHH:mm" (never use
+        // Date.toISOString() here — that converts to UTC and shifts the
+        // recorded time by the timezone offset, which caused incorrect
+        // "วันเวลาบันทึก" values for users in Thailand, UTC+7).
+        function getLocalDateTimeString_() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${mins}`;
+        }
+
+        // Thai Date & Time Formatting (พุทธศักราช, ชื่อวัน/เดือนแบบไทย, เวลา 24 ชม.)
+        function formatThaiDateTime(dateTimeStr, opts) {
+            if (!dateTimeStr) return '-';
+            const options = opts || {};
+            try {
+                const [datePart, timePart] = dateTimeStr.split('T');
+                if (!datePart) return dateTimeStr;
+                const [year, month, day] = datePart.split('-').map(Number);
+
+                const thaiMonths = [
+                    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+                ];
+                const thaiMonthsShort = [
+                    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+                ];
+                const thaiWeekdays = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+                const thaiYear = year + 543;
+                const useShortMonth = options.shortMonth !== false; // short by default, matches original style
+                const monthName = (useShortMonth ? thaiMonthsShort : thaiMonths)[month - 1] || month;
+
+                let weekdayPrefix = '';
+                if (options.showWeekday) {
+                    const jsDate = new Date(year, month - 1, day);
+                    weekdayPrefix = `วัน${thaiWeekdays[jsDate.getDay()]}ที่ `;
+                }
+
+                const timeFormatted = timePart ? ` เวลา ${timePart} น.` : '';
+
+                return `${weekdayPrefix}${day} ${monthName} ${thaiYear}${timeFormatted}`;
+            } catch (e) {
+                return dateTimeStr;
+            }
+        }
+
+        window.onload = function() {
+            initTheme();
+            checkRememberedLogin();
+
+            // Event listener for closing autocomplete when clicking outside
+            document.addEventListener('click', function(e) {
+                const wrapper = document.getElementById('studentSearchWrapper');
+                const autoList = document.getElementById('studentAutocompleteList');
+                if (wrapper && autoList && !wrapper.contains(e.target)) {
+                    autoList.classList.add('hidden');
+                }
+            });
+
+            window.addEventListener('scroll', function() {
+                const btn = document.getElementById('btnBackToTop');
+                if (window.scrollY > 200) {
+                    btn.classList.remove('translate-y-20', 'opacity-0');
+                } else {
+                    btn.classList.add('translate-y-20', 'opacity-0');
+                }
+            });
+
+            loadInitialData();
+        };
+
+        // Loads categories / teachers / students / notifications from the
+        // Google Sheet database via the Apps Script JSON API (callApi).
+        function loadInitialData() {
+            showSpinner(true);
+
+            if (!isApiConfigured()) {
+                // Fallback when the API_URL hasn't been set yet (e.g. previewing
+                // the static file before deploying/wiring up the backend)
+                showSpinner(false);
+                toast('ยังไม่ได้ตั้งค่า API_URL กรุณาใส่ URL ของ Apps Script Web App ในตัวแปร API_URL', 'error');
+                finishInitialRender();
+                return;
+            }
+
+            callApi('getInitialData')
+                .then(function (data) {
+                    state.categories = (data && data.categories) || [];
+                    state.teachers = (data && data.teachers) || [];
+                    state.students = (data && data.students) || [];
+                    state.notifications = (data && data.notifications) || [];
+                    showSpinner(false);
+                    finishInitialRender();
+                })
+                .catch(function (err) {
+                    showSpinner(false);
+                    Swal.fire('โหลดข้อมูลไม่สำเร็จ', (err && err.message) ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                    finishInitialRender();
+                });
+        }
+
+        function finishInitialRender() {
+            populateScheduleSelects();
+            setCurrentScheduleTimeDefault();
+            populateDropdowns();
+            renderTargetStudentsList();
+            renderHistoryTable();
+
+            state.selectedStudentForView = null;
+            displaySelectedStudentNotifications();
+        }
+
+        // Thai-friendly custom schedule controls: native date picker (วันที่)
+        // + plain number inputs for ชั่วโมง (0-23) / นาที (0-59), combined into
+        // the hidden HH:mm value the rest of the app already works with.
+
+        function populateScheduleSelects() {
+            // No dropdowns to populate anymore — hour/minute are free-typed
+            // number inputs. Kept as a no-op so existing call sites still work.
+        }
+
+        // Set the visible hour/minute number inputs from the hidden HH:mm value
+        function syncThaiSelectsFromHidden() {
+            const timeVal = document.getElementById('formScheduleTime').value;
+            if (!timeVal) return;
+            const [hour, minute] = timeVal.split(':');
+            const hourInput = document.getElementById('thaiScheduleHour');
+            const minuteInput = document.getElementById('thaiScheduleMinute');
+            if (hourInput) hourInput.value = Number(hour);
+            if (minuteInput) minuteInput.value = Number(minute);
+        }
+
+        // Update the hidden HH:mm value from the visible hour/minute number inputs
+        function syncHiddenFromThaiSelects() {
+            const hourInput = document.getElementById('thaiScheduleHour');
+            const minuteInput = document.getElementById('thaiScheduleMinute');
+
+            let hour = parseInt(hourInput.value, 10);
+            let minute = parseInt(minuteInput.value, 10);
+            if (isNaN(hour)) hour = 0;
+            if (isNaN(minute)) minute = 0;
+            hour = Math.min(23, Math.max(0, hour));
+            minute = Math.min(59, Math.max(0, minute));
+
+            document.getElementById('formScheduleTime').value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+            updateThaiDateTimePreview();
+        }
+
+        function toggleScheduleMode() {
+            const isCustom = document.getElementById('scheduleModeCustom').checked;
+            const customContainer = document.getElementById('scheduleCustomInputs');
+            if (isCustom) {
+                customContainer.classList.remove('hidden');
+                if (!document.getElementById('formScheduleDate').value || !document.getElementById('formScheduleTime').value) {
+                    setCurrentScheduleTimeDefault();
+                } else {
+                    syncThaiSelectsFromHidden();
+                }
+            } else {
+                customContainer.classList.add('hidden');
+                setCurrentScheduleTimeDefault();
+            }
+            updateThaiDateTimePreview();
+        }
+
+        function updateThaiDateTimePreview() {
+            const isCustom = document.getElementById('scheduleModeCustom')?.checked;
+            const previewEl = document.getElementById('thaiDateTimePreviewDisplay');
+
+            if (!isCustom) {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const mins = String(now.getMinutes()).padStart(2, '0');
+
+                const dateInput = document.getElementById('formScheduleDate');
+                const timeInput = document.getElementById('formScheduleTime');
+                if (dateInput) dateInput.value = `${year}-${month}-${day}`;
+                if (timeInput) timeInput.value = `${hours}:${mins}`;
+
+                const dtStr = `${year}-${month}-${day}T${hours}:${mins}`;
+                if (previewEl) previewEl.innerText = formatThaiDateTime(dtStr, { showWeekday: true }) + ' (ปัจจุบัน)';
+                return;
+            }
+
+            const dateVal = document.getElementById('formScheduleDate').value;
+            const timeVal = document.getElementById('formScheduleTime').value;
+
+            if (!dateVal || !timeVal) {
+                if (previewEl) previewEl.innerText = 'กรุณาระบุทั้งวันที่และเวลา';
+                return;
+            }
+
+            const dtStr = `${dateVal}T${timeVal}`;
+            if (previewEl) {
+                previewEl.innerText = formatThaiDateTime(dtStr, { showWeekday: true });
+            }
+        }
+
+        function setCurrentScheduleTimeDefault() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+
+            const dateInput = document.getElementById('formScheduleDate');
+            const timeInput = document.getElementById('formScheduleTime');
+            if (dateInput) dateInput.value = `${year}-${month}-${day}`;
+            if (timeInput) timeInput.value = `${hours}:${mins}`;
+
+            syncThaiSelectsFromHidden();
+            updateThaiDateTimePreview();
+        }
+
+        function populateDropdowns() {
+            const catSelect = document.getElementById('formCategory');
+            if (catSelect) {
+                const sortedCats = [...state.categories].sort((a, b) => a.order - b.order);
+                catSelect.innerHTML = `<option value="" disabled selected>-- กรุณาเลือกประเภท --</option>` + 
+                    sortedCats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            }
+
+            // Teacher name is no longer a picklist — it's taken directly from
+            // whichever teacher account is currently logged in (see
+            // handleTeacherLogin / setFormTeacherFromLoggedInUser).
+        }
+
+        // Fills the (now read-only) teacher name field from the currently
+        // logged-in teacher, instead of letting the user pick from a list.
+        function setFormTeacherFromLoggedInUser() {
+            const name = state.loggedInTeacher ? state.loggedInTeacher.name : '';
+            const hidden = document.getElementById('formTeacherSelect');
+            const display = document.getElementById('formTeacherNameText');
+            if (hidden) hidden.value = name || '';
+            if (display) display.innerText = name || '-';
+        }
+
+        function toggleClearBtn(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const btn = document.getElementById(`btnClear${inputId}`) || 
+                        document.getElementById(`btnClear${inputId.charAt(0).toUpperCase() + inputId.slice(1)}`) ||
+                        document.getElementById(`btnClear${inputId.replace('Query', '')}`);
+            if (btn) {
+                btn.classList.toggle('hidden', !input.value.trim());
+            }
+        }
+
+        function clearInput(inputId, callback) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = '';
+                toggleClearBtn(inputId);
+                input.focus();
+            }
+            if (typeof callback === 'function') callback();
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function getSortedStudents(list) {
+            return list.slice().sort((a, b) => {
+                if (a.gender !== b.gender) {
+                    return a.gender === 'ชาย' ? -1 : 1;
+                }
+                return parseInt(a.id, 10) - parseInt(b.id, 10);
+            });
+        }
+
+        function filterStudentList() {
+            toggleClearBtn('studentSearchQuery');
+            const input = document.getElementById('studentSearchQuery');
+            const query = input ? input.value.trim().toLowerCase() : '';
+            const autoList = document.getElementById('studentAutocompleteList');
+
+            if (!query) {
+                state.selectedStudentForView = null;
+                if (autoList) autoList.classList.add('hidden');
+                displaySelectedStudentNotifications();
+                return;
+            }
+
+            let filtered = state.students.filter(s => {
+                return matchesQuery_(s.id, query) || matchesQuery_(s.name, query) || matchesQuery_(s.class, query);
+            });
+
+            if (autoList) {
+                if (filtered.length > 0) {
+                    autoList.innerHTML = filtered.map(s => `
+                        <div onclick="selectStudentFromAutocomplete('${s.id}')" 
+                             class="px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center justify-between transition text-xs sm:text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-[10px]">
+                                    ${s.gender === 'ชาย' ? 'ช' : 'ญ'}
+                                </span>
+                                <span class="font-medium text-slate-800 dark:text-slate-100"><span class="font-bold text-blue-600 dark:text-blue-400">[${s.id}]</span> ${s.name}</span>
+                            </div>
+                            <span class="text-xs text-slate-400 font-medium px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-md">${s.class}</span>
+                        </div>
+                    `).join('');
+                    autoList.classList.remove('hidden');
+                } else {
+                    autoList.innerHTML = `
+                        <div class="p-4 text-center text-xs text-slate-400">
+                            ไม่พบนักเรียนที่ตรงกับคำค้นหา
+                        </div>
+                    `;
+                    autoList.classList.remove('hidden');
+                }
+            }
+        }
+
+        function clearStudentSearch() {
+            const input = document.getElementById('studentSearchQuery');
+            if (input) {
+                input.value = '';
+            }
+            toggleClearBtn('studentSearchQuery');
+            state.selectedStudentForView = null;
+            const autoList = document.getElementById('studentAutocompleteList');
+            if (autoList) autoList.classList.add('hidden');
+            displaySelectedStudentNotifications();
+        }
+
+        function selectStudentFromAutocomplete(studentId) {
+            const student = state.students.find(s => s.id === studentId);
+            if (!student) return;
+
+            state.selectedStudentForView = studentId;
+
+            const input = document.getElementById('studentSearchQuery');
+            const autoList = document.getElementById('studentAutocompleteList');
+
+            if (input) input.value = `[${student.id}] ${student.name} (${student.class})`;
+            if (autoList) autoList.classList.add('hidden');
+            toggleClearBtn('studentSearchQuery');
+
+            displaySelectedStudentNotifications(studentId);
+        }
+
+        function displaySelectedStudentNotifications(studentId = state.selectedStudentForView) {
+            const resultsContainer = document.getElementById('studentNotificationResults');
+            const queryInput = document.getElementById('studentSearchQuery');
+            const queryValue = queryInput ? queryInput.value.trim() : '';
+
+            if (!queryValue || !studentId) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+                        <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-50 dark:bg-slate-700/60 text-blue-500 flex items-center justify-center">
+                            <i class="fa-solid fa-magnifying-glass text-2xl"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">ยังไม่ได้เลือกข้อมูลนักเรียน</h3>
+                        <p class="text-xs text-slate-400 max-w-md mx-auto">กรุณากรอกข้อความในช่องค้นหา (ชื่อ, รหัสนักเรียน หรือ ชั้นเรียน) แล้วเลือกรายชื่อนักเรียนจากรายการเพื่อแสดงข้อมูล</p>
+                    </div>`;
+                return;
+            }
+
+            const student = state.students.find(s => s.id === studentId);
+            if (!student) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <i class="fa-solid fa-user-slash text-4xl text-slate-300 dark:text-slate-600 mb-2"></i>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm">ไม่พบข้อมูลนักเรียน กรุณาค้นหาและเลือกรายชื่อนักเรียนใหม่</p>
+                    </div>`;
+                return;
+            }
+
+            // Only show notifications whose scheduled date/time has already arrived —
+            // items scheduled for the future stay hidden from students until then.
+            let myNotifs = state.notifications.filter(n => n.targets.some(t => t.studentId === student.id) && isNotificationDue(n));
+            let sortedCategories = [...state.categories].sort((a, b) => a.order - b.order);
+
+            let html = `
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center font-bold text-lg">
+                            ${student.gender === 'ชาย' ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-user-nurse"></i>'}
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg">${student.name}</h3>
+                            <p class="text-xs text-blue-100">รหัสประจำตัว: ${student.id} | ชั้นเรียน: ${student.class}</p>
+                        </div>
+                    </div>
+                    <div class="bg-white/10 px-3 py-1.5 rounded-xl backdrop-blur text-xs">
+                        รายการข่าวสารทั้งหมด: <span class="font-bold text-amber-300 text-sm">${myNotifs.length}</span> เรื่อง
+                    </div>
+                </div>
+            `;
+
+            // Quick controls to expand/collapse every category section at once
+            html += `
+                <div class="flex items-center justify-end gap-2 text-xs">
+                    <button onclick="setAllStudentCategoriesExpanded(true)" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-angles-down mr-1"></i>ขยายทั้งหมด
+                    </button>
+                    <button onclick="setAllStudentCategoriesExpanded(false)" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-angles-up mr-1"></i>ย่อทั้งหมด
+                    </button>
+                </div>
+            `;
+
+            sortedCategories.forEach(cat => {
+                let catNotifs = myNotifs.filter(n => n.categoryId === cat.id);
+                const colors = getCategoryColors(cat.id);
+                // Collapsed by default so the page doesn't dump every category's
+                // notifications on screen at once; remembers the user's choice
+                // per-category while this student stays selected.
+                const isExpanded = !!state.studentCategoryExpanded[cat.id];
+
+                html += `
+                    <div class="space-y-3">
+                        <button type="button" onclick="toggleStudentCategory('${cat.id}')"
+                            class="w-full flex items-center justify-between gap-2 border-l-4 ${colors.border} pl-3 pr-3 py-2 rounded-r-xl bg-white/60 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition text-left">
+                            <span class="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                <span>${cat.name}</span>
+                                <span class="text-xs ${catNotifs.length > 0 ? colors.badge : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} px-2 py-0.5 rounded-full font-medium">${catNotifs.length}</span>
+                            </span>
+                            <i id="studentCatIcon_${cat.id}" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}"></i>
+                        </button>
+                        <div id="studentCatBody_${cat.id}" class="${isExpanded ? '' : 'hidden'}">
+                `;
+
+                if (catNotifs.length > 0) {
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+                    catNotifs.forEach(n => {
+                        const targetInfo = n.targets.find(t => t.studentId === student.id);
+                        html += `
+                            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 ${colors.cardAccent} shadow-sm hover:shadow-md transition space-y-2">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h5 class="font-semibold text-sm text-slate-900 dark:text-white">${n.subject}</h5>
+                                </div>
+                                ${targetInfo && targetInfo.note ? `
+                                    <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl p-2.5 text-xs text-amber-800 dark:text-amber-300">
+                                        <i class="fa-solid fa-message mr-1"></i> <strong>ข้อความเพิ่มเติม:</strong> ${targetInfo.note}
+                                    </div>
+                                ` : ''}
+                                <div class="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/60 gap-2">
+                                    <span><i class="fa-solid fa-chalkboard-user mr-1"></i> ${n.teacherName}</span>
+                                    <span><i class="fa-regular fa-clock mr-1"></i> ${formatThaiDateTime(n.scheduleTime)}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                } else {
+                    html += `
+                        <div class="bg-white/60 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-circle-info text-slate-300 dark:text-slate-600"></i>
+                            <span>ไม่มีรายการข้อมูลหรือข่าวสารในประเภทนี้</span>
+                        </div>
+                    `;
+                }
+
+                html += `</div></div>`;
+            });
+
+            resultsContainer.innerHTML = html;
+        }
+
+        // Toggles a single category section open/closed in the student view.
+        function toggleStudentCategory(catId) {
+            const body = document.getElementById('studentCatBody_' + catId);
+            const icon = document.getElementById('studentCatIcon_' + catId);
+            if (!body) return;
+            const willExpand = body.classList.contains('hidden');
+            body.classList.toggle('hidden', !willExpand);
+            if (icon) icon.classList.toggle('rotate-180', willExpand);
+            state.studentCategoryExpanded[catId] = willExpand;
+        }
+
+        // Expands or collapses every category section in the student view at once.
+        function setAllStudentCategoriesExpanded(expand) {
+            state.categories.forEach(cat => {
+                state.studentCategoryExpanded[cat.id] = expand;
+                const body = document.getElementById('studentCatBody_' + cat.id);
+                const icon = document.getElementById('studentCatIcon_' + cat.id);
+                if (body) body.classList.toggle('hidden', !expand);
+                if (icon) icon.classList.toggle('rotate-180', expand);
+            });
+        }
+
+        function renderStudentRow(s) {
+            const st = state.targetCheckState[s.id] || { checked: false, note: '' };
+            return `
+                <div class="p-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition">
+                    <input type="checkbox" id="chk_${s.id}" onchange="toggleStudentSelection('${s.id}')" ${st.checked ? 'checked' : ''} 
+                        class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0">
+                    <label for="chk_${s.id}" class="text-sm font-medium text-slate-800 dark:text-slate-200 cursor-pointer select-none flex-1">
+                        <span class="text-blue-600 dark:text-blue-400 font-semibold">[${s.id}]</span> ${s.name}
+                    </label>
+                </div>
+            `;
+        }
+
+        function renderTargetStudentsList() {
+            toggleClearBtn('targetSearchQuery');
+            const query = document.getElementById('targetSearchQuery').value.trim().toLowerCase();
+            const container = document.getElementById('targetStudentListContainer');
+
+            // Data set can be large — require a search term before rendering
+            // the list, instead of dumping every student on screen at once.
+            if (!query) {
+                container.innerHTML = `
+                    <div class="p-6 text-center text-sm text-slate-400 flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass text-2xl text-slate-300 dark:text-slate-600"></i>
+                        <span>พิมพ์ค้นหา ชื่อ, รหัส หรือ ชั้นเรียน เพื่อแสดงรายชื่อนักเรียน</span>
+                    </div>
+                `;
+                updateCheckedSummary();
+                return;
+            }
+
+            let filtered = state.students.filter(s => {
+                return !query || matchesQuery_(s.id, query) || matchesQuery_(s.name, query) || matchesQuery_(s.class, query);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-sm text-slate-400">ไม่พบรายชื่อนักเรียนที่ตรงกับการค้นหา</div>`;
+                updateCheckedSummary();
+                return;
+            }
+
+            const sorted = getSortedStudents(filtered);
+            let grouped = {};
+            sorted.forEach(s => {
+                if (!grouped[s.class]) grouped[s.class] = [];
+                grouped[s.class].push(s);
+            });
+
+            let html = '';
+            for (let className in grouped) {
+                const classStudents = grouped[className];
+                const maleStudents = classStudents.filter(s => s.gender === 'ชาย').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+                const femaleStudents = classStudents.filter(s => s.gender === 'หญิง').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
+                html += `
+                    <div class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-bold text-sm text-slate-600 dark:text-slate-300 flex items-center justify-between sticky top-0 z-10">
+                        <span><i class="fa-solid fa-users text-blue-500 mr-1"></i> ชั้นเรียน ${className}</span>
+                        <span class="text-xs font-normal text-slate-500 dark:text-slate-400">รวม ${classStudents.length} คน (ชาย ${maleStudents.length} / หญิง ${femaleStudents.length})</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-900">
+                        <!-- Left Column: Male Students -->
+                        <div class="p-2 space-y-1">
+                            <div class="px-2 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/40 rounded-lg flex items-center gap-1.5">
+                                <i class="fa-solid fa-mars text-blue-500"></i> นักเรียนชาย (${maleStudents.length} คน)
+                            </div>
+                            ${maleStudents.length > 0 ? maleStudents.map(s => renderStudentRow(s)).join('') : '<div class="text-xs text-slate-400 p-2 text-center">ไม่มีนักเรียนชาย</div>'}
+                        </div>
+
+                        <!-- Right Column: Female Students -->
+                        <div class="p-2 space-y-1">
+                            <div class="px-2 py-1 text-xs font-bold text-pink-600 dark:text-pink-400 bg-pink-50/60 dark:bg-pink-950/40 rounded-lg flex items-center gap-1.5">
+                                <i class="fa-solid fa-venus text-pink-500"></i> นักเรียนหญิง (${femaleStudents.length} คน)
+                            </div>
+                            ${femaleStudents.length > 0 ? femaleStudents.map(s => renderStudentRow(s)).join('') : '<div class="text-xs text-slate-400 p-2 text-center">ไม่มีนักเรียนหญิง</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            updateCheckedSummary();
+        }
+
+        function filterTargetStudents() {
+            renderTargetStudentsList();
+        }
+
+        function toggleStudentSelection(studentId) {
+            const chk = document.getElementById(`chk_${studentId}`);
+            if (!state.targetCheckState[studentId]) {
+                state.targetCheckState[studentId] = { checked: false, note: '' };
+            }
+
+            if (chk) {
+                state.targetCheckState[studentId].checked = chk.checked;
+            } else {
+                state.targetCheckState[studentId].checked = !state.targetCheckState[studentId].checked;
+            }
+
+            if (!state.targetCheckState[studentId].checked) {
+                state.targetCheckState[studentId].note = '';
+            }
+
+            renderTargetStudentsList();
+        }
+
+        function unselectStudentDirectly(studentId) {
+            if (state.targetCheckState[studentId]) {
+                state.targetCheckState[studentId].checked = false;
+                state.targetCheckState[studentId].note = '';
+            }
+            renderTargetStudentsList();
+        }
+
+        function updateSummaryNote(studentId) {
+            const noteInput = document.getElementById(`sumNote_${studentId}`);
+            const btnClear = document.getElementById(`btnSumNoteClear_${studentId}`);
+            if (state.targetCheckState[studentId] && noteInput) {
+                state.targetCheckState[studentId].note = noteInput.value;
+                if (btnClear) {
+                    btnClear.classList.toggle('hidden', !noteInput.value);
+                }
+            }
+        }
+
+        function clearSummaryNote(studentId) {
+            if (state.targetCheckState[studentId]) {
+                state.targetCheckState[studentId].note = '';
+                const noteInput = document.getElementById(`sumNote_${studentId}`);
+                if (noteInput) noteInput.value = '';
+                const btnClear = document.getElementById(`btnSumNoteClear_${studentId}`);
+                if (btnClear) btnClear.classList.add('hidden');
+            }
+        }
+
+        function selectAllVisibleStudents(select = true) {
+            const query = document.getElementById('targetSearchQuery').value.trim().toLowerCase();
+            if (!query) {
+                toast('กรุณาค้นหาก่อน จึงจะเลือก/ยกเลิกการเลือกทั้งหมดได้', 'info');
+                return;
+            }
+            let filtered = state.students.filter(s => {
+                return !query || matchesQuery_(s.id, query) || matchesQuery_(s.name, query) || matchesQuery_(s.class, query);
+            });
+
+            filtered.forEach(s => {
+                state.targetCheckState[s.id] = state.targetCheckState[s.id] || { checked: false, note: '' };
+                state.targetCheckState[s.id].checked = select;
+                if (!select) state.targetCheckState[s.id].note = '';
+            });
+
+            renderTargetStudentsList();
+        }
+
+        function updateCheckedSummary() {
+            let total = 0;
+            let groupedChecked = {};
+
+            state.students.forEach(s => {
+                const st = state.targetCheckState[s.id];
+                if (st && st.checked) {
+                    total++;
+                    if (!groupedChecked[s.class]) groupedChecked[s.class] = [];
+                    groupedChecked[s.class].push({ ...s, note: st.note || '' });
+                }
+            });
+
+            document.getElementById('summaryTotalChecked').innerText = `${total} คน`;
+
+            const breakdownEl = document.getElementById('summaryClassBreakdown');
+            if (total === 0) {
+                breakdownEl.innerHTML = '<div class="text-slate-400 py-2 text-sm text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">ยังไม่ได้เลือกนักเรียนในขณะนี้</div>';
+            } else {
+                let html = '<div class="w-full space-y-2 mt-2">';
+                for (let className in groupedChecked) {
+                    const list = groupedChecked[className];
+                    const maleList = list.filter(st => st.gender === 'ชาย').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+                    const femaleList = list.filter(st => st.gender === 'หญิง').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
+                    html += `
+                        <div class="border border-slate-200 dark:border-slate-700/80 rounded-xl overflow-hidden bg-white dark:bg-slate-800">
+                            <div class="bg-blue-50/80 dark:bg-slate-700/60 px-3 py-1.5 font-bold text-sm text-blue-800 dark:text-blue-300 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
+                                <span><i class="fa-solid fa-users text-blue-500 mr-1.5"></i> ชั้นเรียน ${className}</span>
+                                <span class="bg-blue-200 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full text-xs">${list.length} คน (ชาย ${maleList.length} / หญิง ${femaleList.length})</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-700/60">
+                                <div class="p-2 space-y-2">
+                                    <div class="px-2 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/40 rounded-lg flex items-center gap-1.5">
+                                        <i class="fa-solid fa-mars text-blue-500"></i> นักเรียนชาย (${maleList.length} คน)
+                                    </div>
+                                    ${maleList.length > 0 ? maleList.map(st => renderSummaryStudentCard(st)).join('') : '<div class="text-xs text-slate-400 p-2 text-center">ไม่มีนักเรียนชาย</div>'}
+                                </div>
+                                <div class="p-2 space-y-2">
+                                    <div class="px-2 py-1 text-xs font-bold text-pink-600 dark:text-pink-400 bg-pink-50/60 dark:bg-pink-950/40 rounded-lg flex items-center gap-1.5">
+                                        <i class="fa-solid fa-venus text-pink-500"></i> นักเรียนหญิง (${femaleList.length} คน)
+                                    </div>
+                                    ${femaleList.length > 0 ? femaleList.map(st => renderSummaryStudentCard(st)).join('') : '<div class="text-xs text-slate-400 p-2 text-center">ไม่มีนักเรียนหญิง</div>'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                breakdownEl.innerHTML = html;
+            }
+        }
+
+        function renderSummaryStudentCard(st) {
+            return `
+                <div class="pt-2 border-t border-slate-100 dark:border-slate-700/50 first:border-0 first:pt-0">
+                    <div class="flex items-center justify-between text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" checked onchange="unselectStudentDirectly('${st.id}')" title="กดเพื่อเอาคนนี้ออก" 
+                                class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                            <span><span class="text-blue-600 dark:text-blue-400 font-semibold">[${st.id}]</span> ${st.name}</span>
+                        </label>
+                    </div>
+                    <div class="relative w-full">
+                        <input type="text" id="sumNote_${st.id}" value="${st.note}" oninput="updateSummaryNote('${st.id}')" 
+                            placeholder="ข้อความเพิ่มเติมถึงนักเรียนคนนี้..." 
+                            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-2.5 pr-8 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 dark:text-white">
+                        <button id="btnSumNoteClear_${st.id}" onclick="clearSummaryNote('${st.id}')" type="button"
+                            class="${!st.note ? 'hidden' : ''} absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm transition">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkRememberedLogin() {
+            const remUser = localStorage.getItem('remember_username');
+            const remPass = localStorage.getItem('remember_password');
+            if (remUser && remPass) {
+                document.getElementById('loginUsername').value = remUser;
+                document.getElementById('loginPassword').value = remPass;
+                toggleClearBtn('loginUsername');
+                toggleClearBtn('loginPassword');
+                document.getElementById('rememberLogin').checked = true;
+            }
+        }
+
+        function handleTeacherLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('loginUsername').value.trim();
+            const pass = document.getElementById('loginPassword').value.trim();
+            const remember = document.getElementById('rememberLogin').checked;
+
+            showSpinner(true);
+            setTimeout(() => {
+                showSpinner(false);
+                const teacher = state.teachers.find(t => t.username === user && t.password === pass);
+                if (teacher) {
+                    state.loggedInTeacher = teacher;
+                    if (remember) {
+                        localStorage.setItem('remember_username', user);
+                        localStorage.setItem('remember_password', pass);
+                    } else {
+                        localStorage.removeItem('remember_username');
+                        localStorage.removeItem('remember_password');
+                    }
+                    document.getElementById('loggedTeacherName').innerText = teacher.name;
+                    document.getElementById('teacherLoginForm').classList.add('hidden');
+                    document.getElementById('teacherDashboard').classList.remove('hidden');
+                    setFormTeacherFromLoggedInUser();
+                    renderHistoryTable();
+                    toast(`ยินดีต้อนรับ ${teacher.name}`);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เข้าสู่ระบบไม่สำเร็จ',
+                        text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
+                    });
+                }
+            }, 500);
+        }
+
+        function clearRememberedLogin() {
+            localStorage.removeItem('remember_username');
+            localStorage.removeItem('remember_password');
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            toggleClearBtn('loginUsername');
+            toggleClearBtn('loginPassword');
+            document.getElementById('rememberLogin').checked = false;
+            toast('ลบข้อมูลการเข้าสู่ระบบที่จดจำไว้แล้ว', 'info');
+        }
+
+        function handleTeacherLogout() {
+            state.loggedInTeacher = null;
+            setFormTeacherFromLoggedInUser();
+            renderHistoryTable();
+            document.getElementById('teacherLoginForm').classList.remove('hidden');
+            document.getElementById('teacherDashboard').classList.add('hidden');
+            toast('ออกจากระบบเรียบร้อยแล้ว', 'info');
+        }
+
+        function openChangePasswordModal() {
+            document.getElementById('cpOldPassword').value = '';
+            document.getElementById('cpNewPassword').value = '';
+            document.getElementById('cpConfirmPassword').value = '';
+            document.getElementById('modalChangePassword').classList.remove('hidden');
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('modalChangePassword').classList.add('hidden');
+        }
+
+        function handleChangePasswordSubmit(e) {
+            e.preventDefault();
+
+            if (!state.loggedInTeacher) {
+                Swal.fire('ไม่พบผู้ใช้งาน', 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง', 'warning');
+                return;
+            }
+
+            const oldPassword = document.getElementById('cpOldPassword').value;
+            const newPassword = document.getElementById('cpNewPassword').value;
+            const confirmPassword = document.getElementById('cpConfirmPassword').value;
+
+            if (oldPassword !== state.loggedInTeacher.password) {
+                Swal.fire('รหัสผ่านเดิมไม่ถูกต้อง', 'กรุณาตรวจสอบรหัสผ่านเดิมอีกครั้ง', 'error');
+                return;
+            }
+            if (!newPassword) {
+                Swal.fire('กรุณากรอกรหัสผ่านใหม่', '', 'warning');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                Swal.fire('รหัสผ่านใหม่ไม่ตรงกัน', 'กรุณากรอกรหัสผ่านใหม่และยืนยันให้ตรงกัน', 'error');
+                return;
+            }
+            if (newPassword === oldPassword) {
+                Swal.fire('รหัสผ่านซ้ำกับรหัสเดิม', 'กรุณาตั้งรหัสผ่านใหม่ให้แตกต่างจากรหัสเดิม', 'warning');
+                return;
+            }
+
+            const username = state.loggedInTeacher.username;
+
+            const applyLocalUpdate = function () {
+                showSpinner(false);
+                state.loggedInTeacher.password = newPassword;
+                const t = state.teachers.find(t => t.username === username);
+                if (t) t.password = newPassword;
+                closeChangePasswordModal();
+                toast('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว', 'success');
+            };
+
+            showSpinner(true);
+
+            if (!isApiConfigured()) {
+                applyLocalUpdate();
+                return;
+            }
+
+            callApi('changeTeacherPassword', { username: username, oldPassword: oldPassword, newPassword: newPassword })
+                .then(applyLocalUpdate)
+                .catch(function (err) {
+                    showSpinner(false);
+                    Swal.fire('เปลี่ยนรหัสผ่านไม่สำเร็จ', (err && err.message) ? err.message : 'ไม่สามารถบันทึกรหัสผ่านใหม่ลงฐานข้อมูลได้', 'error');
+                });
+        }
+
+        function confirmResetForm() {
+            const isEditing = Boolean(state.editingNotificationId);
+            Swal.fire({
+                title: isEditing ? 'ยกเลิกการแก้ไข?' : 'ยืนยันการล้างข้อมูล?',
+                text: isEditing ? 'ข้อมูลที่กำลังแก้ไขอยู่จะกลับสู่สภาวะปกติ' : 'ข้อมูลที่กรอกไว้ในแบบฟอร์มจะถูกรีเซ็ตทั้งหมด',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: isEditing ? 'ใช่, ยกเลิกแก้ไข' : 'ใช่, ล้างข้อมูล',
+                cancelButtonText: 'ย้อนกลับ',
+                customClass: { confirmButton: 'bg-rose-600 text-white px-4 py-2 rounded-xl mr-2' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    resetNotificationForm();
+                    toast(isEditing ? 'ยกเลิกการแก้ไขเรียบร้อยแล้ว' : 'ล้างข้อมูลฟอร์มเรียบร้อยแล้ว', 'info');
+                }
+            });
+        }
+
+        function resetNotificationForm() {
+            state.editingNotificationId = null;
+            document.getElementById('formSubject').value = '';
+            const catSelect = document.getElementById('formCategory');
+            if (catSelect) catSelect.selectedIndex = 0;
+
+            setFormTeacherFromLoggedInUser();
+
+            const targetSearchInput = document.getElementById('targetSearchQuery');
+            if (targetSearchInput) {
+                targetSearchInput.value = '';
+                toggleClearBtn('targetSearchQuery');
+            }
+
+            toggleClearBtn('formSubject');
+            state.targetCheckState = {};
+            renderTargetStudentsList();
+            
+            const radioNow = document.getElementById('scheduleModeNow');
+            if (radioNow) radioNow.checked = true;
+            toggleScheduleMode();
+
+            const badge = document.getElementById('section1Badge');
+            if (badge) {
+                badge.className = "text-xs px-2.5 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded-full font-medium transition-all";
+                badge.innerHTML = 'แบบฟอร์มบันทึก';
+            }
+
+            const btnSave = document.getElementById('btnSaveForm');
+            if (btnSave) {
+                btnSave.className = "px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-md shadow-blue-500/20 transition";
+                btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกข้อมูล';
+            }
+
+            const btnCancel = document.getElementById('btnCancelForm');
+            if (btnCancel) {
+                btnCancel.innerHTML = '<i class="fa-solid fa-rotate-left mr-1"></i> ยกเลิก';
+            }
+        }
+
+        function loadIntoEditForm(notifId) {
+            const notif = state.notifications.find(n => n.id === notifId);
+            if (!notif) return;
+
+            const isOwner = !!(state.loggedInTeacher && notif.teacherName === state.loggedInTeacher.name);
+            if (!isOwner) {
+                Swal.fire('ไม่สามารถแก้ไขได้', 'แก้ไขได้เฉพาะรายการที่เป็นของตนเองเท่านั้น', 'warning');
+                return;
+            }
+
+            state.editingNotificationId = notifId;
+
+            document.getElementById('formSubject').value = notif.subject || '';
+            document.getElementById('formCategory').value = notif.categoryId || '';
+            // Teacher name always reflects whoever is currently logged in,
+            // not the name originally stored on the notification.
+            setFormTeacherFromLoggedInUser();
+            
+            const radioCustom = document.getElementById('scheduleModeCustom');
+            if (radioCustom) radioCustom.checked = true;
+            toggleScheduleMode();
+
+            if (notif.scheduleTime) {
+                const parts = notif.scheduleTime.split('T');
+                const dateInput = document.getElementById('formScheduleDate');
+                const timeInput = document.getElementById('formScheduleTime');
+                if (dateInput) dateInput.value = parts[0] || '';
+                if (timeInput) timeInput.value = parts[1] || '';
+                syncThaiSelectsFromHidden();
+                updateThaiDateTimePreview();
+            }
+
+            const targetSearchInput = document.getElementById('targetSearchQuery');
+            if (targetSearchInput) {
+                targetSearchInput.value = '';
+                toggleClearBtn('targetSearchQuery');
+            }
+
+            toggleClearBtn('formSubject');
+
+            state.targetCheckState = {};
+            if (notif.targets && Array.isArray(notif.targets)) {
+                notif.targets.forEach(t => {
+                    state.targetCheckState[t.studentId] = {
+                        checked: true,
+                        note: t.note || ''
+                    };
+                });
+            }
+
+            renderTargetStudentsList();
+
+            const badge = document.getElementById('section1Badge');
+            if (badge) {
+                badge.className = "text-xs px-2.5 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-full font-medium border border-amber-300 dark:border-amber-700 animate-pulse";
+                badge.innerHTML = '<i class="fa-solid fa-pen-to-square mr-1"></i> โหมดแก้ไขข้อมูล';
+            }
+
+            const btnSave = document.getElementById('btnSaveForm');
+            if (btnSave) {
+                btnSave.className = "px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs sm:text-sm font-medium shadow-md shadow-amber-500/20 transition";
+                btnSave.innerHTML = '<i class="fa-solid fa-arrows-rotate mr-1"></i> อัปเดตข้อมูล';
+            }
+
+            const btnCancel = document.getElementById('btnCancelForm');
+            if (btnCancel) {
+                btnCancel.innerHTML = '<i class="fa-solid fa-xmark mr-1"></i> ยกเลิกการแก้ไข';
+            }
+
+            closeModal();
+
+            const formEl = document.getElementById('sectionFormNotification');
+            if (formEl) {
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            toast(`แก้ไข ${notif.subject}`, 'info');
+        }
+
+        function confirmSaveNotification() {
+            const isEditing = Boolean(state.editingNotificationId);
+            const subject = document.getElementById('formSubject').value.trim();
+            const categoryId = document.getElementById('formCategory').value;
+            const categoryObj = state.categories.find(c => c.id === categoryId);
+            const teacherName = document.getElementById('formTeacherSelect').value;
+            
+            const isCustom = document.getElementById('scheduleModeCustom')?.checked;
+            let scheduleDate = document.getElementById('formScheduleDate').value;
+            let scheduleTimeVal = document.getElementById('formScheduleTime').value;
+
+            if (!isCustom) {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const mins = String(now.getMinutes()).padStart(2, '0');
+                scheduleDate = `${year}-${month}-${day}`;
+                scheduleTimeVal = `${hours}:${mins}`;
+            }
+
+            const scheduleTime = (scheduleDate && scheduleTimeVal) ? `${scheduleDate}T${scheduleTimeVal}` : (scheduleDate || scheduleTimeVal || '');
+
+            let selectedTargets = [];
+            state.students.forEach(s => {
+                const st = state.targetCheckState[s.id];
+                if (st && st.checked) {
+                    selectedTargets.push({ studentId: s.id, note: st.note || '' });
+                }
+            });
+
+            if (!subject) {
+                Swal.fire('กรุณากรอกข้อมูล', 'โปรดระบุเรื่องที่ต้องการแจ้ง', 'warning');
+                return;
+            }
+            if (!categoryId) {
+                Swal.fire('กรุณาเลือกประเภท', 'โปรดเลือกประเภทเรื่องที่ต้องการแจ้ง', 'warning');
+                return;
+            }
+            if (!teacherName) {
+                Swal.fire('ไม่พบชื่อครูผู้แจ้ง', 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง', 'warning');
+                return;
+            }
+            if (isCustom && (!scheduleDate || !scheduleTimeVal)) {
+                Swal.fire('กรุณาระบุวันที่และเวลา', 'โปรดเลือกทั้งวันที่และเวลาที่ต้องการแจ้ง', 'warning');
+                return;
+            }
+            if (selectedTargets.length === 0) {
+                Swal.fire('กรุณาเลือกเป้าหมาย', 'โปรดเลือกนักเรียนอย่างน้อย 1 คนเพื่อแจ้งข้อมูล', 'warning');
+                return;
+            }
+
+            const htmlSummary = `
+                <div class="text-left text-xs sm:text-sm space-y-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <p><strong>เรื่องที่แจ้ง:</strong> ${subject}</p>
+                    <p><strong>ประเภท:</strong> ${categoryObj ? categoryObj.name : '-'}</p>
+                    <p><strong>ครูผู้แจ้ง:</strong> ${teacherName}</p>
+                    <p><strong>กำหนดแจ้งเตือน:</strong> ${formatThaiDateTime(scheduleTime)}</p>
+                    <p><strong>จำนวนนักเรียน:</strong> <span class="text-blue-600 font-bold">${selectedTargets.length} คน</span></p>
+                </div>
+            `;
+
+            Swal.fire({
+                title: isEditing ? 'ยืนยันการอัปเดตข้อมูล?' : 'ยืนยันการบันทึกข้อมูล?',
+                html: htmlSummary,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: isEditing ? 'อัปเดตข้อมูล' : 'บันทึกข้อมูล',
+                cancelButtonText: 'ตรวจสอบอีกครั้ง'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    showSpinner(true);
+                    const nowTime = getLocalDateTimeString_();
+
+                    const payload = isEditing ? {
+                        ...state.notifications.find(n => n.id === state.editingNotificationId),
+                        subject: subject,
+                        categoryId: categoryId,
+                        categoryName: categoryObj ? categoryObj.name : '',
+                        teacherName: teacherName,
+                        scheduleTime: scheduleTime,
+                        updatedTime: nowTime,
+                        targets: selectedTargets
+                    } : {
+                        id: 'notif-' + Date.now(),
+                        subject: subject,
+                        categoryId: categoryId,
+                        categoryName: categoryObj ? categoryObj.name : '',
+                        teacherName: teacherName,
+                        scheduleTime: scheduleTime,
+                        createdTime: nowTime,
+                        targets: selectedTargets
+                    };
+
+                    const applyLocalUpdate = function (savedNotif) {
+                        const finalNotif = savedNotif || payload;
+                        if (isEditing) {
+                            const index = state.notifications.findIndex(n => n.id === state.editingNotificationId);
+                            if (index !== -1) state.notifications[index] = finalNotif;
+                        } else {
+                            state.notifications.unshift(finalNotif);
+                        }
+
+                        resetNotificationForm();
+                        renderHistoryTable();
+                        filterStudentList();
+
+                        Swal.fire(
+                            isEditing ? 'อัปเดตสำเร็จ!' : 'บันทึกสำเร็จ!',
+                            isEditing ? 'ปรับปรุงข้อมูลการแจ้งเตือนเรียบร้อยแล้ว' : 'เพิ่มรายการแจ้งเตือนเข้าสู่ระบบเรียบร้อยแล้ว',
+                            'success'
+                        );
+                    };
+
+                    if (!isApiConfigured()) {
+                        showSpinner(false);
+                        applyLocalUpdate(payload);
+                        return;
+                    }
+
+                    callApi('saveNotification', payload)
+                        .then(function (savedNotif) {
+                            showSpinner(false);
+                            applyLocalUpdate(savedNotif);
+                        })
+                        .catch(function (err) {
+                            showSpinner(false);
+                            Swal.fire('บันทึกไม่สำเร็จ', (err && err.message) ? err.message : 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้', 'error');
+                        });
+                }
+            });
+        }
+
+        function onHistorySearchInput() {
+            state.historyPage = 1;
+            renderHistoryTable();
+        }
+
+        function changeHistoryPage(newPage) {
+            state.historyPage = newPage;
+            renderHistoryTable();
+        }
+
+        function renderHistoryTable() {
+            toggleClearBtn('historySearchQuery');
+            const query = document.getElementById('historySearchQuery').value.trim().toLowerCase();
+            const tbody = document.getElementById('historyTableBody');
+            const cardList = document.getElementById('historyCardList');
+            const paginationEl = document.getElementById('historyPagination');
+
+            let filtered = state.notifications.filter(n => {
+                return !query || matchesQuery_(n.subject, query) || matchesQuery_(n.categoryName, query) || matchesQuery_(n.teacherName, query);
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">ไม่พบประวัติการแจ้งเตือน</td></tr>`;
+                if (cardList) cardList.innerHTML = `<div class="p-6 text-center text-sm text-slate-400 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">ไม่พบประวัติการแจ้งเตือน</div>`;
+                paginationEl.innerHTML = '';
+                return;
+            }
+
+            const totalPages = Math.ceil(filtered.length / state.historyPerPage) || 1;
+            if (state.historyPage > totalPages) state.historyPage = totalPages;
+            if (state.historyPage < 1) state.historyPage = 1;
+
+            const startIndex = (state.historyPage - 1) * state.historyPerPage;
+            const paginatedItems = filtered.slice(startIndex, startIndex + state.historyPerPage);
+
+            let html = '';
+            let cardHtml = '';
+            paginatedItems.forEach(n => {
+                const isOwner = !!(state.loggedInTeacher && n.teacherName === state.loggedInTeacher.name);
+                const disabledAttr = isOwner ? '' : 'disabled';
+                const disabledTitle = isOwner ? '' : ' (แก้ไข/ลบได้เฉพาะรายการของตนเอง)';
+                const disabledClass = 'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-500';
+                const disabledClassRose = 'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-600';
+                const colors = getCategoryColors(n.categoryId);
+
+                html += `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition border-l-4 ${colors.border}">
+                        <td class="p-3 font-medium text-slate-900 dark:text-white max-w-xs truncate">${n.subject}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 ${colors.badgeSoft} rounded-md font-medium text-xs">${n.categoryName}</span></td>
+                        <td class="p-3">${n.teacherName}</td>
+                        <td class="p-3 hidden sm:table-cell text-slate-500 dark:text-slate-400">${formatThaiDateTime(n.scheduleTime)}</td>
+                        <td class="p-3 hidden md:table-cell text-slate-400">${formatThaiDateTime(n.createdTime)}</td>
+                        <td class="p-3 text-right">
+                            <div class="inline-flex items-center justify-end gap-1.5">
+                                <button onclick="openHistoryModal('${n.id}', false)" title="ดูรายละเอียด" class="w-8 h-8 rounded-xl bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                </button>
+                                <button onclick="loadIntoEditForm('${n.id}')" ${disabledAttr} title="แก้ไข${disabledTitle}" class="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClass}">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button onclick="deleteHistoryItem('${n.id}')" ${disabledAttr} title="ลบ${disabledTitle}" class="w-8 h-8 rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClassRose}">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+
+                cardHtml += `
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 ${colors.cardAccent} shadow-sm space-y-2.5">
+                        <div class="flex items-start justify-between gap-2">
+                            <h4 class="font-semibold text-sm text-slate-900 dark:text-white leading-snug">${n.subject}</h4>
+                            <span class="shrink-0 px-2 py-0.5 ${colors.badgeSoft} rounded-md font-medium text-xs">${n.categoryName}</span>
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                            <div><i class="fa-solid fa-chalkboard-user w-4 text-slate-400"></i> ${n.teacherName}</div>
+                            <div><i class="fa-regular fa-clock w-4 text-slate-400"></i> แจ้ง: ${formatThaiDateTime(n.scheduleTime)}</div>
+                            <div><i class="fa-regular fa-floppy-disk w-4 text-slate-400"></i> บันทึก: ${formatThaiDateTime(n.createdTime)}</div>
+                        </div>
+                        <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                            <button onclick="openHistoryModal('${n.id}', false)" title="ดูรายละเอียด" class="w-9 h-9 rounded-xl bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs">
+                                <i class="fa-solid fa-eye text-sm"></i>
+                            </button>
+                            <button onclick="loadIntoEditForm('${n.id}')" ${disabledAttr} title="แก้ไข${disabledTitle}" class="w-9 h-9 rounded-xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClass}">
+                                <i class="fa-solid fa-pen-to-square text-sm"></i>
+                            </button>
+                            <button onclick="deleteHistoryItem('${n.id}')" ${disabledAttr} title="ลบ${disabledTitle}" class="w-9 h-9 rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClassRose}">
+                                <i class="fa-solid fa-trash text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            if (cardList) cardList.innerHTML = cardHtml;
+
+            paginationEl.innerHTML = `
+                <div>แสดงรายการที่ ${startIndex + 1} - ${Math.min(startIndex + state.historyPerPage, filtered.length)} จากทั้งหมด ${filtered.length} รายการ</div>
+                <div class="flex items-center gap-1">
+                    <button onclick="changeHistoryPage(${state.historyPage - 1})" ${state.historyPage === 1 ? 'disabled' : ''} 
+                        class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span class="px-3 py-1 font-semibold text-slate-700 dark:text-slate-300">หน้า ${state.historyPage} / ${totalPages}</span>
+                    <button onclick="changeHistoryPage(${state.historyPage + 1})" ${state.historyPage === totalPages ? 'disabled' : ''} 
+                        class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function openHistoryModal(notifId) {
+            const notif = state.notifications.find(n => n.id === notifId);
+            if (!notif) return;
+
+            state.currentEditingHistoryId = notifId;
+            updateModalUI(notif);
+            document.getElementById('modalHistoryDetail').classList.remove('hidden');
+        }
+
+        function updateModalUI(notif) {
+            document.getElementById('modalModeBadge').innerText = 'โหมดดูข้อมูล';
+            document.getElementById('modalModeBadge').className = 'text-xs px-2.5 py-1 rounded-full font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300';
+
+            // Editing from the detail modal is only allowed for the teacher's
+            // own notifications, matching the buttons in the history list.
+            const isOwner = !!(state.loggedInTeacher && notif.teacherName === state.loggedInTeacher.name);
+            const editBtn = document.getElementById('btnModalEditToggle');
+            if (editBtn) {
+                editBtn.disabled = !isOwner;
+                editBtn.title = isOwner ? '' : 'แก้ไขได้เฉพาะรายการของตนเอง';
+                editBtn.className = 'px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs sm:text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-500';
+            }
+
+            const body = document.getElementById('modalBody');
+            const modalColors = getCategoryColors(notif.categoryId);
+
+            let targetListHtml = notif.targets.map(t => {
+                const st = state.students.find(s => s.id === t.studentId);
+                return `
+                    <div class="p-2 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-bold text-blue-600 dark:text-blue-400">[${t.studentId}]</span> ${st ? st.name : ''} (${st ? st.class : ''})
+                        </div>
+                        <span class="text-xs text-slate-500">${t.note ? 'หมายเหตุ: ' + t.note : '-'}</span>
+                    </div>
+                `;
+            }).join('');
+
+            body.innerHTML = `
+                <div class="space-y-3">
+                    <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl space-y-1 border-l-4 ${modalColors.border}">
+                        <p><strong>เรื่องที่แจ้ง:</strong> ${notif.subject}</p>
+                        <p><strong>ประเภท:</strong> <span class="px-2 py-0.5 ${modalColors.badgeSoft} rounded-md font-medium text-xs">${notif.categoryName}</span></p>
+                        <p><strong>ผู้แจ้ง:</strong> ${notif.teacherName}</p>
+                        <p><strong>วันเวลาแจ้งเตือน:</strong> ${formatThaiDateTime(notif.scheduleTime)}</p>
+                        <p><strong>วันเวลาบันทึก:</strong> ${formatThaiDateTime(notif.createdTime)}</p>
+                        ${notif.updatedTime ? `<p class="text-amber-600 dark:text-amber-400 font-medium"><strong>วันที่แก้ไขล่าสุด:</strong> ${formatThaiDateTime(notif.updatedTime)}</p>` : ''}
+                    </div>
+                    <div>
+                        <h4 class="font-bold mb-2">รายชื่อนักเรียนที่แจ้งเตือน (${notif.targets.length} คน):</h4>
+                        <div class="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl">
+                            ${targetListHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleModalEditMode() {
+            if (state.currentEditingHistoryId) {
+                const targetId = state.currentEditingHistoryId;
+                const notif = state.notifications.find(n => n.id === targetId);
+                const isOwner = !!(notif && state.loggedInTeacher && notif.teacherName === state.loggedInTeacher.name);
+                if (!isOwner) {
+                    Swal.fire('ไม่สามารถแก้ไขได้', 'แก้ไขได้เฉพาะรายการที่เป็นของตนเองเท่านั้น', 'warning');
+                    return;
+                }
+                closeModal();
+                loadIntoEditForm(targetId);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modalHistoryDetail').classList.add('hidden');
+            state.currentEditingHistoryId = null;
+        }
+
+        function deleteHistoryItem(notifId) {
+            const notif = state.notifications.find(n => n.id === notifId);
+            const isOwner = !!(notif && state.loggedInTeacher && notif.teacherName === state.loggedInTeacher.name);
+            if (!isOwner) {
+                Swal.fire('ไม่สามารถลบได้', 'ลบได้เฉพาะรายการที่เป็นของตนเองเท่านั้น', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'ยืนยันการลบรายการ?',
+                text: 'การลบจะไม่สามารถกู้คืนข้อมูลได้',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'ลบรายการ',
+                cancelButtonText: 'ยกเลิก',
+                customClass: { confirmButton: 'bg-rose-600 text-white px-4 py-2 rounded-xl mr-2' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    showSpinner(true);
+
+                    const applyLocalDelete = function () {
+                        showSpinner(false);
+                        state.notifications = state.notifications.filter(n => n.id !== notifId);
+                        renderHistoryTable();
+                        filterStudentList();
+                        toast('ลบรายการแจ้งเตือนเรียบร้อยแล้ว', 'info');
+                    };
+
+                    if (!isApiConfigured()) {
+                        applyLocalDelete();
+                        return;
+                    }
+
+                    callApi('deleteNotification', { id: notifId })
+                        .then(applyLocalDelete)
+                        .catch(function (err) {
+                            showSpinner(false);
+                            Swal.fire('ลบไม่สำเร็จ', (err && err.message) ? err.message : 'ไม่สามารถลบข้อมูลออกจากฐานข้อมูลได้', 'error');
+                        });
+                }
+            });
+        }
+    </script>
+</body>
+</html>
