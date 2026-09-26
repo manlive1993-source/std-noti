@@ -601,7 +601,8 @@
             modalIsEditMode: false,
             historyPage: 1,
             historyPerPage: 30,
-            studentCategoryExpanded: {} // categoryId -> bool, controls collapse in student view
+            studentCategoryExpanded: {}, // categoryId -> bool, controls collapse in student view
+            notificationsLoadedForTeacher: false // becomes true once the full notifications list has been fetched for the teacher dashboard
         };
 
         // Safe substring match used by every search box in the app. Coerces
@@ -651,7 +652,40 @@
                 viewTeacher.classList.remove('hidden');
                 btnTeacher.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
                 btnStudent.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
+
+                // The full notification history is only needed for the teacher
+                // dashboard, so it's fetched lazily the first time this tab is
+                // opened, instead of downloading every student's data up front
+                // just because the page loaded.
+                ensureTeacherNotificationsLoaded(function () {
+                    renderHistoryTable();
+                });
             }
+        }
+
+        // Lazily loads the full notifications list (used only by the teacher
+        // dashboard) at most once per page session, unless forceRefresh is set.
+        function ensureTeacherNotificationsLoaded(callback, forceRefresh) {
+            if (state.notificationsLoadedForTeacher && !forceRefresh) {
+                callback();
+                return;
+            }
+            if (!isApiConfigured()) {
+                callback();
+                return;
+            }
+            showSpinner(true, 'กำลังโหลดประวัติการแจ้งเตือนทั้งหมด...');
+            callApi('getAllNotifications')
+                .then(function (data) {
+                    state.notifications = data || [];
+                    state.notificationsLoadedForTeacher = true;
+                    showSpinner(false);
+                    callback();
+                })
+                .catch(function (err) {
+                    showSpinner(false);
+                    Swal.fire('โหลดประวัติไม่สำเร็จ', (err && err.message) ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                });
         }
 
         // Data Reloading & Spinners
@@ -674,12 +708,11 @@
                 return;
             }
 
-            callApi('getInitialData')
+            callApi('getBootstrapData')
                 .then(function (data) {
                     state.categories = (data && data.categories) || [];
                     state.teachers = (data && data.teachers) || [];
                     state.students = (data && data.students) || [];
-                    state.notifications = (data && data.notifications) || [];
 
                     // Keep the logged-in teacher record in sync (name/password
                     // may have changed on the sheet), refresh dropdown data,
@@ -693,16 +726,21 @@
                         setFormTeacherFromLoggedInUser();
                     }
                     populateDropdowns();
+                    renderTargetStudentsList();
 
                     if (state.currentTab === 'student') {
+                        finish();
+                        toast('โหลดข้อมูลใหม่เรียบร้อยแล้ว', 'success');
                         displaySelectedStudentNotifications();
                     } else {
-                        renderHistoryTable();
-                        renderTargetStudentsList();
+                        // Force-refresh the full notifications list too, since
+                        // the teacher tab is open and relies on it.
+                        ensureTeacherNotificationsLoaded(function () {
+                            renderHistoryTable();
+                            finish();
+                            toast('โหลดข้อมูลใหม่เรียบร้อยแล้ว', 'success');
+                        }, true);
                     }
-
-                    finish();
-                    toast('โหลดข้อมูลใหม่เรียบร้อยแล้ว', 'success');
                 })
                 .catch(function (err) {
                     finish();
@@ -846,8 +884,11 @@
             loadInitialData();
         };
 
-        // Loads categories / teachers / students / notifications from the
-        // Google Sheet database via the Apps Script JSON API (callApi).
+        // Loads categories / teachers / students (lightweight "bootstrap" data)
+        // from the Google Sheet database via the Apps Script JSON API. The
+        // full notifications list is NOT fetched here — it's loaded lazily,
+        // either per-student (student/parent tab) or in full (teacher tab,
+        // via ensureTeacherNotificationsLoaded) — see getNotificationsForStudent().
         function loadInitialData() {
             showSpinner(true);
 
@@ -860,12 +901,11 @@
                 return;
             }
 
-            callApi('getInitialData')
+            callApi('getBootstrapData')
                 .then(function (data) {
                     state.categories = (data && data.categories) || [];
                     state.teachers = (data && data.teachers) || [];
                     state.students = (data && data.students) || [];
-                    state.notifications = (data && data.notifications) || [];
                     showSpinner(false);
                     finishInitialRender();
                 })
@@ -881,7 +921,9 @@
             setCurrentScheduleTimeDefault();
             populateDropdowns();
             renderTargetStudentsList();
-            renderHistoryTable();
+            // renderHistoryTable() is intentionally NOT called here — it needs
+            // the full notifications list, which is only fetched lazily when
+            // the teacher tab is actually opened (see switchTab()).
 
             state.selectedStudentForView = null;
             displaySelectedStudentNotifications();
@@ -1149,9 +1191,46 @@
                 return;
             }
 
-            // Only show notifications whose scheduled date/time has already arrived —
-            // items scheduled for the future stay hidden from students until then.
-            let myNotifs = state.notifications.filter(n => n.targets.some(t => t.studentId === student.id) && isNotificationDue(n));
+            // Fetches only this student's own notifications from the backend
+            // (server-side filtered) rather than downloading every student's
+            // data to every browser and filtering client-side — keeps other
+            // students' names/notes out of this browser entirely.
+            resultsContainer.innerHTML = `
+                <div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+                    <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p class="text-xs text-slate-400 mt-3">กำลังโหลดข่าวสาร...</p>
+                </div>`;
+
+            const renderWithNotifs = function (notifsForStudent) {
+                // Only show notifications whose scheduled date/time has already
+                // arrived — items scheduled for the future stay hidden from
+                // students until then.
+                const myNotifs = (notifsForStudent || []).filter(isNotificationDue);
+                renderStudentNotificationsUI_(student, myNotifs);
+            };
+
+            if (!isApiConfigured()) {
+                // Fallback for local/offline preview: filter whatever was
+                // already loaded client-side (normally empty in this mode).
+                renderWithNotifs(state.notifications.filter(n => n.targets.some(t => t.studentId === student.id)));
+                return;
+            }
+
+            callApi('getNotificationsForStudent', { studentId: student.id })
+                .then(renderWithNotifs)
+                .catch(function (err) {
+                    resultsContainer.innerHTML = `
+                        <div class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                            <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-500 mb-2"></i>
+                            <p class="text-slate-500 dark:text-slate-400 text-sm">โหลดข่าวสารไม่สำเร็จ: ${(err && err.message) ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'}</p>
+                        </div>`;
+                });
+        }
+
+        // Renders the student/parent notification cards, grouped by category,
+        // for an already-fetched-and-filtered list of notifications.
+        function renderStudentNotificationsUI_(student, myNotifs) {
+            const resultsContainer = document.getElementById('studentNotificationResults');
             let sortedCategories = [...state.categories].sort((a, b) => a.order - b.order);
 
             let html = `
