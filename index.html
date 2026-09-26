@@ -1713,6 +1713,13 @@
                 const maleStudents = classStudents.filter(s => s.gender === 'ชาย').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
                 const femaleStudents = classStudents.filter(s => s.gender === 'หญิง').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
+                // "Select all" checkbox per class+gender group only ticks itself
+                // when every currently-shown student in that group is already
+                // checked — so it reflects (and can toggle) exactly what's
+                // visible under the current search, not the whole school.
+                const maleAllChecked = maleStudents.length > 0 && maleStudents.every(s => state.targetCheckState[s.id] && state.targetCheckState[s.id].checked);
+                const femaleAllChecked = femaleStudents.length > 0 && femaleStudents.every(s => state.targetCheckState[s.id] && state.targetCheckState[s.id].checked);
+
                 html += `
                     <div class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-bold text-sm text-slate-600 dark:text-slate-300 flex items-center justify-between sticky top-0 z-10">
                         <span><i class="fa-solid fa-users text-blue-500 mr-1"></i> ชั้นเรียน ${className}</span>
@@ -1721,17 +1728,23 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-900">
                         <!-- Left Column: Male Students -->
                         <div class="p-2 space-y-1">
-                            <div class="px-2 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/40 rounded-lg flex items-center gap-1.5">
+                            <label class="px-2 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/40 rounded-lg flex items-center gap-1.5 ${maleStudents.length > 0 ? 'cursor-pointer' : ''}">
+                                <input type="checkbox" ${maleStudents.length === 0 ? 'disabled' : ''} ${maleAllChecked ? 'checked' : ''}
+                                    onchange="toggleClassGenderSelection('${className}', 'ชาย', this.checked)"
+                                    class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                                 <i class="fa-solid fa-mars text-blue-500"></i> นักเรียนชาย (${maleStudents.length} คน)
-                            </div>
+                            </label>
                             ${maleStudents.length > 0 ? maleStudents.map(s => renderStudentRow(s)).join('') : '<div class="text-xs text-slate-400 p-2 text-center">ไม่มีนักเรียนชาย</div>'}
                         </div>
 
                         <!-- Right Column: Female Students -->
                         <div class="p-2 space-y-1">
-                            <div class="px-2 py-1 text-xs font-bold text-pink-600 dark:text-pink-400 bg-pink-50/60 dark:bg-pink-950/40 rounded-lg flex items-center gap-1.5">
+                            <label class="px-2 py-1 text-xs font-bold text-pink-600 dark:text-pink-400 bg-pink-50/60 dark:bg-pink-950/40 rounded-lg flex items-center gap-1.5 ${femaleStudents.length > 0 ? 'cursor-pointer' : ''}">
+                                <input type="checkbox" ${femaleStudents.length === 0 ? 'disabled' : ''} ${femaleAllChecked ? 'checked' : ''}
+                                    onchange="toggleClassGenderSelection('${className}', 'หญิง', this.checked)"
+                                    class="w-3.5 h-3.5 rounded border-slate-300 text-pink-600 focus:ring-pink-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                                 <i class="fa-solid fa-venus text-pink-500"></i> นักเรียนหญิง (${femaleStudents.length} คน)
-                            </div>
+                            </label>
                             ${femaleStudents.length > 0 ? femaleStudents.map(s => renderStudentRow(s)).join('') : '<div class="text-xs text-slate-400 p-2 text-center">ไม่มีนักเรียนหญิง</div>'}
                         </div>
                     </div>
@@ -1740,6 +1753,26 @@
 
             container.innerHTML = html;
             updateCheckedSummary();
+        }
+
+        // Ticks/unticks every currently-shown student of one gender within one
+        // class at once (the checkbox next to "นักเรียนชาย/หญิง (N คน)"). Re-runs
+        // the same search filter as the list itself, so it only affects the
+        // students actually visible under the current search — not the whole class.
+        function toggleClassGenderSelection(className, gender, select) {
+            const query = document.getElementById('targetSearchQuery').value.trim().toLowerCase();
+            const matching = state.students.filter(s => {
+                return s.class === className && s.gender === gender &&
+                    (!query || matchesQuery_(s.id, query) || matchesQuery_(s.name, query) || matchesQuery_(s.class, query));
+            });
+
+            matching.forEach(s => {
+                state.targetCheckState[s.id] = state.targetCheckState[s.id] || { checked: false, note: '' };
+                state.targetCheckState[s.id].checked = select;
+                if (!select) state.targetCheckState[s.id].note = '';
+            });
+
+            renderTargetStudentsList();
         }
 
         function filterTargetStudents() {
