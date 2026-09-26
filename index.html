@@ -494,7 +494,7 @@
     <div id="globalSpinner" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center hidden">
         <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 border border-slate-200 dark:border-slate-700">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p class="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200">กำลังประมวลผลข้อมูล...</p>
+            <p id="globalSpinnerText" class="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200">กำลังประมวลผลข้อมูล...</p>
         </div>
     </div>
 
@@ -515,20 +515,73 @@
         // "simple request", so no CORS preflight (OPTIONS) is triggered —
         // Apps Script Web Apps can't reliably answer preflight requests.
         // code.gs parses the text body as JSON on its side (e.postData.contents).
-        function callApi(action, payload) {
+        //
+        // Resilience for slow/flaky connections:
+        //   - Each attempt is aborted after CALL_API_TIMEOUT_MS if the network
+        //     just hangs, instead of leaving the user staring at a spinner forever.
+        //   - Network-level failures (timeout, offline, DNS, dropped connection)
+        //     are retried automatically a few times with a short backoff.
+        //   - A real error reply from the server (success:false) is NOT retried,
+        //     since retrying won't fix a validation or logic error.
+        const CALL_API_TIMEOUT_MS = 15000;
+        const CALL_API_MAX_ATTEMPTS = 3;
+
+        function callApiOnce_(action, payload) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(function () { controller.abort(); }, CALL_API_TIMEOUT_MS);
+
             return fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: action, payload: payload || {} })
+                body: JSON.stringify({ action: action, payload: payload || {} }),
+                signal: controller.signal
             })
                 .then(function (res) { return res.json(); })
                 .then(function (json) {
                     if (!json || json.success !== true) {
                         const msg = (json && json.message) ? json.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อ API';
-                        throw new Error(msg);
+                        const err = new Error(msg);
+                        err.isServerError = true; // came back from the server; retrying won't help
+                        throw err;
                     }
                     return json.data;
+                })
+                .catch(function (err) {
+                    if (err && err.name === 'AbortError') {
+                        const timeoutErr = new Error('การเชื่อมต่อช้าเกินไป (หมดเวลารอสัญญาณ) กรุณาตรวจสอบสัญญาณอินเทอร์เน็ต');
+                        timeoutErr.isNetworkError = true;
+                        throw timeoutErr;
+                    }
+                    if (!err.isServerError) {
+                        // TypeError from fetch itself = offline / DNS / connection dropped
+                        err.isNetworkError = true;
+                    }
+                    throw err;
+                })
+                .finally(function () { clearTimeout(timeoutId); });
+        }
+
+        function delay_(ms) {
+            return new Promise(function (resolve) { setTimeout(resolve, ms); });
+        }
+
+        function callApi(action, payload, attempt) {
+            attempt = attempt || 1;
+            return callApiOnce_(action, payload).catch(function (err) {
+                const canRetry = err && err.isNetworkError && attempt < CALL_API_MAX_ATTEMPTS;
+                if (!canRetry) {
+                    if (err && err.isNetworkError) {
+                        // Ran out of retries — make the message explicitly point at the network
+                        err.message = 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จเนื่องจากสัญญาณอินเทอร์เน็ตช้าหรือขาดหาย กรุณาลองใหม่อีกครั้ง (ลองไปแล้ว ' + attempt + ' ครั้ง)';
+                    }
+                    throw err;
+                }
+                // Backoff a little longer each retry: 800ms, 1600ms, ...
+                showSpinner(true, 'สัญญาณอินเทอร์เน็ตช้า กำลังลองเชื่อมต่อใหม่ (ครั้งที่ ' + (attempt + 1) + '/' + CALL_API_MAX_ATTEMPTS + ')...');
+                return delay_(800 * attempt).then(function () {
+                    return callApi(action, payload, attempt + 1);
                 });
+            });
         }
 
         let state = {
@@ -657,8 +710,10 @@
                 });
         }
 
-        function showSpinner(show) {
+        function showSpinner(show, message) {
             const spinner = document.getElementById('globalSpinner');
+            const text = document.getElementById('globalSpinnerText');
+            if (text) text.innerText = message || 'กำลังประมวลผลข้อมูล...';
             if (spinner) {
                 if (show) {
                     spinner.classList.remove('hidden');
