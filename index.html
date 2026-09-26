@@ -602,7 +602,9 @@
             historyPage: 1,
             historyPerPage: 30,
             studentCategoryExpanded: {}, // categoryId -> bool, controls collapse in student view
-            notificationsLoadedForTeacher: false // becomes true once the full notifications list has been fetched for the teacher dashboard
+            notificationsLoadedForTeacher: false, // becomes true once the full notifications list has been fetched for the teacher dashboard
+            currentStudentUnreadQueue: [], // ids of not-yet-read notifications for the currently viewed student, in bell-click order
+            currentStudentNotifsById: {} // id -> notif, for the currently viewed student (used by the bell to expand/scroll/highlight)
         };
 
         // Safe substring match used by every search box in the app. Coerces
@@ -806,6 +808,35 @@
             const scheduled = new Date(notif.scheduleTime); // "yyyy-MM-ddTHH:mm" parses as local time
             if (isNaN(scheduled.getTime())) return true; // fail open if the value is unexpected
             return new Date() >= scheduled;
+        }
+
+        // ------------------------------------------------------------------
+        // "Read" tracking for the student/parent view — remembers, per
+        // student profile and per browser (localStorage), which notification
+        // IDs have already been seen, so a "ใหม่" badge + bell counter can
+        // point out what's new without the parent having to hunt for it.
+        // ------------------------------------------------------------------
+        const READ_NOTIFS_STORAGE_PREFIX = 'readNotifIds:';
+
+        function getReadNotifIds_(studentId) {
+            try {
+                const raw = localStorage.getItem(READ_NOTIFS_STORAGE_PREFIX + studentId);
+                return raw ? new Set(JSON.parse(raw)) : new Set();
+            } catch (e) {
+                return new Set(); // private browsing / storage disabled — fail open (treat as all unread)
+            }
+        }
+
+        function markNotifsRead_(studentId, ids) {
+            if (!ids || !ids.length) return;
+            try {
+                const current = getReadNotifIds_(studentId);
+                ids.forEach(id => current.add(id));
+                localStorage.setItem(READ_NOTIFS_STORAGE_PREFIX + studentId, JSON.stringify([...current]));
+            } catch (e) {
+                // ignore storage errors (private mode, quota, etc.) — just means
+                // the "ใหม่" badge may reappear next visit, not a functional break
+            }
         }
 
         // Returns current LOCAL date/time as "yyyy-MM-ddTHH:mm" (never use
@@ -1233,6 +1264,18 @@
             const resultsContainer = document.getElementById('studentNotificationResults');
             let sortedCategories = [...state.categories].sort((a, b) => a.order - b.order);
 
+            // Which of these notifications has this browser not seen yet for
+            // this student (tracked in localStorage, per student, per device).
+            const readIds = getReadNotifIds_(student.id);
+            const unreadNotifs = myNotifs.filter(n => !readIds.has(n.id));
+
+            // Remember the unread queue + a quick id -> {notif, categoryId} lookup
+            // so the bell button can jump to (and expand/highlight/mark-read)
+            // one unread item at a time without re-fetching anything.
+            state.currentStudentUnreadQueue = unreadNotifs.map(n => n.id);
+            state.currentStudentNotifsById = {};
+            myNotifs.forEach(n => { state.currentStudentNotifsById[n.id] = n; });
+
             let html = `
                 <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
@@ -1249,6 +1292,26 @@
                     </div>
                 </div>
             `;
+
+            // Bell banner: only shown when there's something new to see. Tapping
+            // it jumps straight to the next unread item — expands its category,
+            // scrolls to the card, briefly highlights it, and marks it read.
+            if (unreadNotifs.length > 0) {
+                html += `
+                    <button id="newNotifBell" onclick="goToNextUnreadNotification()"
+                        class="w-full flex items-center gap-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-300 px-4 py-3 rounded-2xl text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-950/70 transition active:scale-[0.99] shadow-sm">
+                        <span class="relative inline-flex shrink-0">
+                            <i class="fa-solid fa-bell text-lg"></i>
+                            <span class="absolute -top-1 -right-1.5 flex h-2.5 w-2.5">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                            </span>
+                        </span>
+                        <span class="text-left flex-1">มีข่าวสารใหม่ <span id="newNotifCount" class="font-bold">${unreadNotifs.length}</span> เรื่อง — แตะเพื่อไปดู</span>
+                        <i class="fa-solid fa-chevron-right text-xs opacity-60"></i>
+                    </button>
+                `;
+            }
 
             // Quick controls to expand/collapse every category section at once
             html += `
@@ -1287,10 +1350,12 @@
                     html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
                     catNotifs.forEach(n => {
                         const targetInfo = n.targets.find(t => t.studentId === student.id);
+                        const isUnread = !readIds.has(n.id);
                         html += `
-                            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 ${colors.cardAccent} shadow-sm hover:shadow-md transition space-y-2">
+                            <div id="notifCard_${n.id}" class="scroll-mt-24 bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 ${colors.cardAccent} shadow-sm hover:shadow-md transition space-y-2">
                                 <div class="flex items-start justify-between gap-2">
                                     <h5 class="font-semibold text-sm text-slate-900 dark:text-white">${n.subject}</h5>
+                                    ${isUnread ? `<span id="newBadge_${n.id}" class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white">ใหม่</span>` : ''}
                                 </div>
                                 ${targetInfo && targetInfo.note ? `
                                     <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl p-2.5 text-xs text-amber-800 dark:text-amber-300">
@@ -1340,6 +1405,58 @@
                 if (body) body.classList.toggle('hidden', !expand);
                 if (icon) icon.classList.toggle('rotate-180', expand);
             });
+        }
+
+        // Bell button handler: jumps to the next unread notification for the
+        // currently-viewed student — expands its category if collapsed,
+        // scrolls to the card, briefly highlights it, then marks it read and
+        // updates (or hides) the bell. Calling it again goes to the next one.
+        function goToNextUnreadNotification() {
+            const queue = state.currentStudentUnreadQueue || [];
+            if (queue.length === 0) return;
+
+            const notifId = queue[0];
+            const notif = state.currentStudentNotifsById && state.currentStudentNotifsById[notifId];
+            if (!notif) {
+                // Stale reference (shouldn't normally happen) — drop it and try the next one
+                state.currentStudentUnreadQueue = queue.slice(1);
+                goToNextUnreadNotification();
+                return;
+            }
+
+            // Make sure its category is expanded so the card is actually visible
+            const catId = notif.categoryId;
+            if (!state.studentCategoryExpanded[catId]) {
+                state.studentCategoryExpanded[catId] = true;
+                const body = document.getElementById('studentCatBody_' + catId);
+                const icon = document.getElementById('studentCatIcon_' + catId);
+                if (body) body.classList.remove('hidden');
+                if (icon) icon.classList.add('rotate-180');
+            }
+
+            const card = document.getElementById('notifCard_' + notifId);
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.classList.add('ring-4', 'ring-blue-400', 'dark:ring-blue-500');
+                setTimeout(function () {
+                    card.classList.remove('ring-4', 'ring-blue-400', 'dark:ring-blue-500');
+                }, 1600);
+            }
+
+            // Mark this one read: remove its "ใหม่" badge, update/hide the bell,
+            // and persist it to localStorage so it stays read on the next visit.
+            const badge = document.getElementById('newBadge_' + notifId);
+            if (badge) badge.remove();
+            markNotifsRead_(state.selectedStudentForView, [notifId]);
+            state.currentStudentUnreadQueue = queue.slice(1);
+
+            const bell = document.getElementById('newNotifBell');
+            const countEl = document.getElementById('newNotifCount');
+            if (state.currentStudentUnreadQueue.length === 0) {
+                if (bell) bell.remove();
+            } else if (countEl) {
+                countEl.innerText = state.currentStudentUnreadQueue.length;
+            }
         }
 
         function renderStudentRow(s) {
