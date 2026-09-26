@@ -405,7 +405,7 @@
                     </div>
 
                     <!-- History Cards (mobile / small screens) -->
-                    <div id="historyCardList" class="sm:hidden space-y-3"></div>
+                    <div id="historyCardList" class="sm:hidden space-y-2"></div>
 
                     <!-- Pagination Bar -->
                     <div id="historyPagination" class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400">
@@ -2045,25 +2045,24 @@
                 `;
 
                 cardHtml += `
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 ${colors.cardAccent} shadow-sm space-y-2.5">
-                        <div class="flex items-start justify-between gap-2">
-                            <h4 class="font-semibold text-sm text-slate-900 dark:text-white leading-snug">${n.subject}</h4>
-                            <span class="shrink-0 px-2 py-0.5 ${colors.badgeSoft} rounded-md font-medium text-xs">${n.categoryName}</span>
+                    <div class="bg-white dark:bg-slate-800 rounded-xl pl-3 pr-2 py-2 border border-slate-200 dark:border-slate-700 ${colors.cardAccent} shadow-sm flex items-center gap-2">
+                        <div onclick="openHistoryModal('${n.id}')" class="flex-1 min-w-0 cursor-pointer active:opacity-60 transition py-0.5">
+                            <div class="flex items-center gap-1.5">
+                                <span class="shrink-0 text-[10px] leading-none px-1.5 py-1 ${colors.badgeSoft} rounded font-medium">${n.categoryName}</span>
+                                <h4 class="font-semibold text-sm text-slate-900 dark:text-white truncate">${n.subject}</h4>
+                            </div>
+                            <div class="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                                <i class="fa-solid fa-chalkboard-user"></i> ${n.teacherName}
+                                <span class="mx-1">·</span>
+                                <i class="fa-regular fa-clock"></i> ${formatThaiDateTime(n.scheduleTime)}
+                            </div>
                         </div>
-                        <div class="text-xs text-slate-500 dark:text-slate-400 space-y-1">
-                            <div><i class="fa-solid fa-chalkboard-user w-4 text-slate-400"></i> ${n.teacherName}</div>
-                            <div><i class="fa-regular fa-clock w-4 text-slate-400"></i> แจ้ง: ${formatThaiDateTime(n.scheduleTime)}</div>
-                            <div><i class="fa-regular fa-floppy-disk w-4 text-slate-400"></i> บันทึก: ${formatThaiDateTime(n.createdTime)}</div>
-                        </div>
-                        <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-700/60">
-                            <button onclick="openHistoryModal('${n.id}', false)" title="ดูรายละเอียด" class="w-9 h-9 rounded-xl bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs">
-                                <i class="fa-solid fa-eye text-sm"></i>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="loadIntoEditForm('${n.id}')" ${disabledAttr} title="แก้ไข${disabledTitle}" class="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClass}">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
                             </button>
-                            <button onclick="loadIntoEditForm('${n.id}')" ${disabledAttr} title="แก้ไข${disabledTitle}" class="w-9 h-9 rounded-xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClass}">
-                                <i class="fa-solid fa-pen-to-square text-sm"></i>
-                            </button>
-                            <button onclick="deleteHistoryItem('${n.id}')" ${disabledAttr} title="ลบ${disabledTitle}" class="w-9 h-9 rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClassRose}">
-                                <i class="fa-solid fa-trash text-sm"></i>
+                            <button onclick="deleteHistoryItem('${n.id}')" ${disabledAttr} title="ลบ${disabledTitle}" class="w-8 h-8 rounded-lg bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition active:scale-95 shadow-xs ${disabledClassRose}">
+                                <i class="fa-solid fa-trash text-xs"></i>
                             </button>
                         </div>
                     </div>
