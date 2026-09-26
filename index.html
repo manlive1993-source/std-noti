@@ -270,11 +270,8 @@
                                 </button>
                             </div>
 
-                            <button onclick="selectAllVisibleStudents(true)" class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition">
-                                <i class="fa-solid fa-check-double mr-1"></i> เลือกทั้งหมด
-                            </button>
-                            <button onclick="selectAllVisibleStudents(false)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-medium transition">
-                                <i class="fa-solid fa-xmark mr-1"></i> ยกเลิกการเลือก
+                            <button id="btnSelectAllToggle" onclick="toggleSelectAllVisibleStudents()" class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition whitespace-nowrap">
+                                <i id="btnSelectAllToggleIcon" class="fa-solid fa-check-double mr-1"></i><span id="btnSelectAllToggleLabel">เลือกทั้งหมด</span>
                             </button>
                         </div>
 
@@ -1685,6 +1682,7 @@
                     </div>
                 `;
                 updateCheckedSummary();
+            updateSelectAllToggleButton_();
                 return;
             }
 
@@ -1695,6 +1693,7 @@
             if (filtered.length === 0) {
                 container.innerHTML = `<div class="p-4 text-center text-sm text-slate-400">ไม่พบรายชื่อนักเรียนที่ตรงกับการค้นหา</div>`;
                 updateCheckedSummary();
+            updateSelectAllToggleButton_();
                 return;
             }
 
@@ -1753,6 +1752,7 @@
 
             container.innerHTML = html;
             updateCheckedSummary();
+            updateSelectAllToggleButton_();
         }
 
         // Ticks/unticks every currently-shown student of one gender within one
@@ -1827,7 +1827,11 @@
             }
         }
 
-        function selectAllVisibleStudents(select = true) {
+        // Single button that does both jobs: selects every currently-shown
+        // (search-filtered) student if they aren't all already checked, or
+        // deselects them all if they are — so the label/icon flips instead of
+        // needing two separate buttons.
+        function toggleSelectAllVisibleStudents() {
             const query = document.getElementById('targetSearchQuery').value.trim().toLowerCase();
             if (!query) {
                 toast('กรุณาค้นหาก่อน จึงจะเลือก/ยกเลิกการเลือกทั้งหมดได้', 'info');
@@ -1836,6 +1840,10 @@
             let filtered = state.students.filter(s => {
                 return !query || matchesQuery_(s.id, query) || matchesQuery_(s.name, query) || matchesQuery_(s.class, query);
             });
+            if (filtered.length === 0) return;
+
+            const allChecked = filtered.every(s => state.targetCheckState[s.id] && state.targetCheckState[s.id].checked);
+            const select = !allChecked; // if everything's already checked, this click clears it; otherwise it selects the rest
 
             filtered.forEach(s => {
                 state.targetCheckState[s.id] = state.targetCheckState[s.id] || { checked: false, note: '' };
@@ -1844,6 +1852,32 @@
             });
 
             renderTargetStudentsList();
+        }
+
+        // Keeps the toggle button's icon/label/color in sync with whether the
+        // currently-shown (search-filtered) students are all selected or not.
+        function updateSelectAllToggleButton_() {
+            const btn = document.getElementById('btnSelectAllToggle');
+            if (!btn) return;
+            const icon = document.getElementById('btnSelectAllToggleIcon');
+            const label = document.getElementById('btnSelectAllToggleLabel');
+            const query = document.getElementById('targetSearchQuery').value.trim().toLowerCase();
+
+            let filtered = query ? state.students.filter(s => {
+                return matchesQuery_(s.id, query) || matchesQuery_(s.name, query) || matchesQuery_(s.class, query);
+            }) : [];
+
+            const allChecked = filtered.length > 0 && filtered.every(s => state.targetCheckState[s.id] && state.targetCheckState[s.id].checked);
+
+            if (allChecked) {
+                icon.className = 'fa-solid fa-xmark mr-1';
+                label.innerText = 'ยกเลิกการเลือกทั้งหมด';
+                btn.className = 'px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-medium transition whitespace-nowrap';
+            } else {
+                icon.className = 'fa-solid fa-check-double mr-1';
+                label.innerText = 'เลือกทั้งหมด';
+                btn.className = 'px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition whitespace-nowrap';
+            }
         }
 
         function updateCheckedSummary() {
