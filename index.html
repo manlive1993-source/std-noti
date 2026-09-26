@@ -1154,6 +1154,23 @@
             });
         }
 
+        // Natural sort for class names like "ม.1/1", "ม.1/2", "ม.2/1" — pulls out
+        // the two numbers (ระดับชั้น / ห้อง) and compares numerically, so ม.1/1
+        // always comes before ม.2/1 regardless of what order rows happen to
+        // appear in the Students sheet. Falls back to plain text comparison for
+        // any class name that doesn't match the usual "X/Y" pattern.
+        function compareClassNames_(a, b) {
+            const parse = (c) => {
+                const m = String(c).match(/(\d+)\D+(\d+)/);
+                return m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : [Infinity, Infinity];
+            };
+            const [aLevel, aRoom] = parse(a);
+            const [bLevel, bRoom] = parse(b);
+            if (aLevel !== bLevel) return aLevel - bLevel;
+            if (aRoom !== bRoom) return aRoom - bRoom;
+            return String(a).localeCompare(String(b), 'th');
+        }
+
         function filterStudentList() {
             toggleClearBtn('studentSearchQuery');
             const input = document.getElementById('studentSearchQuery');
@@ -1688,8 +1705,10 @@
                 grouped[s.class].push(s);
             });
 
+            const orderedClassNames = Object.keys(grouped).sort(compareClassNames_);
+
             let html = '';
-            for (let className in grouped) {
+            for (const className of orderedClassNames) {
                 const classStudents = grouped[className];
                 const maleStudents = classStudents.filter(s => s.gender === 'ชาย').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
                 const femaleStudents = classStudents.filter(s => s.gender === 'หญิง').sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
