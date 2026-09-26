@@ -270,8 +270,8 @@
                                 </button>
                             </div>
 
-                            <button id="btnSelectAllToggle" onclick="toggleSelectAllVisibleStudents()" class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition whitespace-nowrap">
-                                <i id="btnSelectAllToggleIcon" class="fa-solid fa-check-double mr-1"></i><span id="btnSelectAllToggleLabel">เลือกทั้งหมด</span>
+                            <button id="btnSelectAllToggle" onclick="toggleSelectAllVisibleStudents()" title="เลือกทั้งหมด" class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition whitespace-nowrap">
+                                <i id="btnSelectAllToggleIcon" class="fa-solid fa-check-double sm:mr-1"></i><span id="btnSelectAllToggleLabel" class="hidden sm:inline">เลือกทั้งหมด</span>
                             </button>
                         </div>
 
@@ -1870,12 +1870,14 @@
             const allChecked = filtered.length > 0 && filtered.every(s => state.targetCheckState[s.id] && state.targetCheckState[s.id].checked);
 
             if (allChecked) {
-                icon.className = 'fa-solid fa-xmark mr-1';
-                label.innerText = 'ยกเลิกการเลือกทั้งหมด';
+                icon.className = 'fa-solid fa-xmark sm:mr-1';
+                label.innerText = 'ยกเลิก';
+                btn.title = 'ยกเลิกการเลือกทั้งหมด';
                 btn.className = 'px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-medium transition whitespace-nowrap';
             } else {
-                icon.className = 'fa-solid fa-check-double mr-1';
+                icon.className = 'fa-solid fa-check-double sm:mr-1';
                 label.innerText = 'เลือกทั้งหมด';
+                btn.title = 'เลือกทั้งหมด';
                 btn.className = 'px-3 py-2 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-medium border border-blue-200 dark:border-blue-800 transition whitespace-nowrap';
             }
         }
