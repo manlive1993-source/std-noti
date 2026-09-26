@@ -645,13 +645,13 @@
             if (tab === 'student') {
                 viewStudent.classList.remove('hidden');
                 viewTeacher.classList.add('hidden');
-                btnStudent.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
-                btnTeacher.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
+                btnStudent.className = "px-3 py-1.5 rounded-lg text-lg sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                btnTeacher.className = "px-3 py-1.5 rounded-lg text-lg sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
             } else {
                 viewStudent.classList.add('hidden');
                 viewTeacher.classList.remove('hidden');
-                btnTeacher.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
-                btnStudent.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
+                btnTeacher.className = "px-3 py-1.5 rounded-lg text-lg sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                btnStudent.className = "px-3 py-1.5 rounded-lg text-lg sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white";
 
                 // The full notification history is only needed for the teacher
                 // dashboard, so it's fetched lazily the first time this tab is
